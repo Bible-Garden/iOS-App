@@ -433,12 +433,12 @@ struct SkeletonView: View {
             }
             
             else if settingsManager.selectedMenuItem == .setup {
-                PageSetupView(showFromRead: $showAsPartOfRead)
+                PageReadSettingsView(showFromRead: $showAsPartOfRead)
                 .environmentObject(settingsManager)
             }
             
             else if settingsManager.selectedMenuItem == .contacts {
-                PageContactsView()
+                PageAboutView()
                 .environmentObject(settingsManager)
             }
             

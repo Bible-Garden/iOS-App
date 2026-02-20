@@ -3,7 +3,7 @@ import AVFoundation
 import Combine
 import Foundation
 
-struct PageSetupView: View {
+struct PageReadSettingsView: View {
     private let examplePreviewHeight: CGFloat = 158
     
     @State private var inlineErrorMessage: String = ""
@@ -990,7 +990,7 @@ struct PageSetupView: View {
     }
 
     private func showInlineError(for error: Error) {
-        print("[PageSetupView] Operation failed: \(error)")
+        print("[PageReadSettingsView] Operation failed: \(error)")
         let rawErrorText = "\(error)"
         if let statusCode = extractHTTPStatusCode(from: rawErrorText) {
             inlineErrorMessage = "error.loading.setup.with_code".localized(statusCode)
@@ -1027,16 +1027,16 @@ struct PageSetupView: View {
     
 }
 
-struct TestPageSetupView: View {
-    
+struct TestPageReadSettingsView: View {
+
     @State private var showFromRead: Bool = true
-    
+
     var body: some View {
-        PageSetupView(showFromRead: $showFromRead)
+        PageReadSettingsView(showFromRead: $showFromRead)
             .environmentObject(SettingsManager())
     }
 }
 
 #Preview {
-    TestPageSetupView()
+    TestPageReadSettingsView()
 }

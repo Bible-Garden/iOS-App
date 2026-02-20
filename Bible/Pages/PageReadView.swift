@@ -226,7 +226,7 @@ struct PageReadView: View {
                 }
             })
             {
-                PageSetupView(showFromRead: $showSetup)
+                PageReadSettingsView(showFromRead: $showSetup)
                     .environmentObject(settingsManager)
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)

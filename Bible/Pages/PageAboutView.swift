@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct PageContactsView: View {
+struct PageAboutView: View {
     @EnvironmentObject var settingsManager: SettingsManager
     @ObservedObject private var localizationManager = LocalizationManager.shared
     @Binding var showFromRead: Bool
@@ -116,15 +116,15 @@ struct PageContactsView: View {
     }
 }
 
-struct TestPageContactsView: View {
+struct TestPageAboutView: View {
     @State private var showFromRead: Bool = false
-    
+
     var body: some View {
-        PageContactsView(showFromRead: $showFromRead)
+        PageAboutView(showFromRead: $showFromRead)
             .environmentObject(SettingsManager())
     }
 }
 
 #Preview {
-    TestPageContactsView()
+    TestPageAboutView()
 }
