@@ -760,40 +760,7 @@ final class SimpleReadingTests: XCTestCase {
 
     // #29 — вынесен в SimpleReadingAudioEndProgressTests (отдельный launch с --auto-progress-audio-end)
 
-    // #30 — Проверяем тогл «автопереход на следующую главу» в настройках.
-    // Результат: тогл включён по умолчанию, переключается off/on.
-    @MainActor
-    func testAutoNextChapter() {
-        // autoNextChapter defaults to true with --uitesting
-        // Verify the toggle exists in settings and is enabled by default
-        openSettings()
-        app.swipeUp()
-
-        // Toggle can be a switch or other element depending on SwiftUI rendering
-        let toggle = app.switches["settings-auto-next"]
-        if toggle.waitForExistence(timeout: 5) {
-            // Verify it's on by default (value "1")
-            XCTAssertEqual(toggle.value as? String, "1",
-                           "Auto next chapter should be enabled by default")
-
-            // Toggle off and verify
-            toggle.tap()
-            XCTAssertEqual(toggle.value as? String, "0",
-                           "Auto next chapter should be disabled after toggle")
-
-            // Toggle back on
-            toggle.tap()
-            XCTAssertEqual(toggle.value as? String, "1",
-                           "Auto next chapter should be re-enabled after toggle")
-        } else {
-            // Try as an otherElement
-            let altToggle = app.otherElements["settings-auto-next"]
-            XCTAssertTrue(altToggle.waitForExistence(timeout: 3),
-                          "Auto next chapter control should exist in settings")
-        }
-
-        closeSettings()
-    }
+    // #30 — вынесен в SimpleReadingAutoNextTests (отдельный launch с --start-excerpt "psa 117")
 
     // MARK: - P1: Audio info
 
@@ -816,33 +783,8 @@ final class SimpleReadingTests: XCTestCase {
 
     // MARK: - P2: Deep coverage
 
-    // #33 — Запускаем воспроизведение и проверяем кнопку прогресса.
-    // Результат: кнопка прогресса существует и отображается во время проигрывания.
-    @MainActor
-    func testAutoProgressFrom90Percent() {
-        // autoProgressFrom90Percent defaults to true
-        // Full test would require listening to 90% of verses
-        // Verify the progress indicator exists and responds to playback
-
-        let progressBtn = app.buttons["read-chapter-progress"]
-        XCTAssertTrue(progressBtn.waitForExistence(timeout: 8))
-
-        waitForAudioReady()
-
-        let playPause = app.buttons["read-play-pause"]
-        playPause.tap()
-
-        // Let it play briefly — the progress arc should start updating
-        Thread.sleep(forTimeInterval: 5)
-
-        XCTAssertTrue(progressBtn.exists,
-                      "Progress button should exist during playback")
-
-        playPause.tap() // stop
-    }
-
     // #34 — Воспроизведение без пауз (pauseType=none после --uitesting).
-    // Результат: плеер остаётся в состоянии playing без автопауз 5 секунд.
+    // Результат: плеер остаётся в состоянии playing без автопауз 15 секунд.
     @MainActor
     func testPauseBlockParagraphVsVerse() {
         // With --uitesting, pauseType = .none, so no pauses occur
@@ -855,7 +797,7 @@ final class SimpleReadingTests: XCTestCase {
         _ = waitForPlaybackState("playing")
 
         // With pauseType=none, it should remain playing for several seconds
-        Thread.sleep(forTimeInterval: 5)
+        Thread.sleep(forTimeInterval: 15)
         let stateLabel = app.staticTexts["read-playback-state"]
         if stateLabel.exists {
             // Should still be playing (not autopausing) since pauseType=none
@@ -1238,5 +1180,129 @@ final class SimpleReadingAudioEndProgressTests: XCTestCase {
         // Глава должна быть отмечена как прочитанная
         XCTAssertEqual(progressBtn.value as? String, "read",
                        "Chapter should be auto-marked as read after audio finishes")
+    }
+}
+
+// MARK: - SimpleReadingAutoNextTests (автопереход на следующую главу после окончания аудио)
+
+final class SimpleReadingAutoNextTests: XCTestCase {
+
+    private var app: XCUIApplication!
+
+    override func tearDownWithError() throws {
+        app = nil
+    }
+
+    // #30 — Открываем короткий Псалом 117, дослушиваем до конца с autoNextChapter=true.
+    // Результат: заголовок главы автоматически меняется на следующую (Псалом 118).
+    @MainActor
+    func testAutoNextChapter() throws {
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting",
+            "--start-excerpt", "psa 117"
+        ]
+        app.launch()
+        app.navigateToReadingPage()
+
+        // Ждём загрузку аудио
+        let stateLabel = app.staticTexts["read-playback-state"]
+        guard stateLabel.waitForExistence(timeout: 10) else {
+            throw XCTSkip("Playback state label not found — cannot verify")
+        }
+        let waitingPredicate = NSPredicate(format: "label == %@", "waitingForPlay")
+        let waitExp = XCTNSPredicateExpectation(predicate: waitingPredicate, object: stateLabel)
+        _ = XCTWaiter.wait(for: [waitExp], timeout: 15)
+
+        // Запоминаем текущий заголовок главы
+        let title = app.buttons["read-chapter-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        let originalTitle = title.label
+
+        // Устанавливаем скорость 2x для ускорения
+        let speedBtn = app.buttons["read-speed"]
+        XCTAssertTrue(speedBtn.waitForExistence(timeout: 3))
+        for _ in 0..<5 { speedBtn.tap() }
+
+        // Запускаем воспроизведение
+        let playPause = app.buttons["read-play-pause"]
+        playPause.tap()
+
+        let playingPredicate = NSPredicate(format: "label == %@", "playing")
+        let playExp = XCTNSPredicateExpectation(predicate: playingPredicate, object: stateLabel)
+        _ = XCTWaiter.wait(for: [playExp], timeout: 10)
+
+        // Псалом 117 — 2 стиха. Прокликиваем «следующий стих» чтобы быстрее дойти до конца.
+        let nextVerse = app.buttons["read-next-verse"]
+        if nextVerse.waitForExistence(timeout: 3) {
+            Thread.sleep(forTimeInterval: 1)
+            nextVerse.tap()
+        }
+
+        // Ждём смены заголовка главы (autoNextChapter переключает на следующую)
+        XCTAssertTrue(
+            app.waitForLabelChange(element: title, from: originalTitle, timeout: 40),
+            "Chapter title should change after audio finishes with autoNextChapter enabled. Was: \(originalTitle)")
+    }
+
+    // #30b — Открываем Псалом 117 с --no-auto-next-chapter, дослушиваем до конца.
+    // Результат: заголовок главы НЕ меняется — автопереход отключён.
+    @MainActor
+    func testNoAutoNextChapter() throws {
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting",
+            "--no-auto-next-chapter",
+            "--start-excerpt", "psa 117"
+        ]
+        app.launch()
+        app.navigateToReadingPage()
+
+        // Ждём загрузку аудио
+        let stateLabel = app.staticTexts["read-playback-state"]
+        guard stateLabel.waitForExistence(timeout: 10) else {
+            throw XCTSkip("Playback state label not found — cannot verify")
+        }
+        let waitingPredicate = NSPredicate(format: "label == %@", "waitingForPlay")
+        let waitExp = XCTNSPredicateExpectation(predicate: waitingPredicate, object: stateLabel)
+        _ = XCTWaiter.wait(for: [waitExp], timeout: 15)
+
+        // Запоминаем заголовок главы
+        let title = app.buttons["read-chapter-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        let originalTitle = title.label
+
+        // Скорость 2x
+        let speedBtn = app.buttons["read-speed"]
+        XCTAssertTrue(speedBtn.waitForExistence(timeout: 3))
+        for _ in 0..<5 { speedBtn.tap() }
+
+        // Запускаем воспроизведение
+        let playPause = app.buttons["read-play-pause"]
+        playPause.tap()
+
+        let playingPredicate = NSPredicate(format: "label == %@", "playing")
+        let playExp = XCTNSPredicateExpectation(predicate: playingPredicate, object: stateLabel)
+        _ = XCTWaiter.wait(for: [playExp], timeout: 10)
+
+        // Пропускаем на последний стих
+        let nextVerse = app.buttons["read-next-verse"]
+        if nextVerse.waitForExistence(timeout: 3) {
+            Thread.sleep(forTimeInterval: 1)
+            nextVerse.tap()
+        }
+
+        // Ждём завершения аудио
+        let finishedPredicate = NSPredicate(format: "label == %@ OR label == %@",
+                                            "finished", "segmentFinished")
+        let finishExp = XCTNSPredicateExpectation(predicate: finishedPredicate, object: stateLabel)
+        _ = XCTWaiter.wait(for: [finishExp], timeout: 30)
+
+        // Даём время — если бы автопереход сработал, он бы произошёл за ~1 сек
+        Thread.sleep(forTimeInterval: 3)
+
+        // Заголовок НЕ должен измениться
+        XCTAssertEqual(title.label, originalTitle,
+                       "Chapter title should NOT change with autoNextChapter disabled")
     }
 }

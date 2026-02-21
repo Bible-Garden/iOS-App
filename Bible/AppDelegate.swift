@@ -23,6 +23,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 // before chapter switches
                 UserDefaults.standard.set(false, forKey: "autoNextChapter")
             }
+            // Explicitly disable autoNextChapter if requested
+            if TestingEnvironment.noAutoNextChapter {
+                UserDefaults.standard.set(false, forKey: "autoNextChapter")
+            }
         }
 
         // Preload WKWebView ahead of time

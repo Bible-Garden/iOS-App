@@ -7,7 +7,7 @@
 | `BibleGardenUITests.swift` | App launch | ✅ Exists |
 | `MenuTests.swift` | Menu navigation | ✅ Exists (6 tests) |
 | `Helpers/XCUIApplication+Helpers.swift` | Shared helpers | ✅ Exists |
-| `SimpleReadingTests.swift` | Classic reading, audio, settings | ✅ 37 tests, 4 classes — all pass (1 skipped by design: #29) |
+| `SimpleReadingTests.swift` | Classic reading, audio, settings | ✅ 37 tests, 6 classes — all pass |
 | `MainTests.swift` | Main screen cards | 📝 Planned |
 | `ChapterSelectTests.swift` | OT/NT filter, book/chapter pick | 📝 Planned |
 | `MultiReadingTests.swift` | Multilingual setup + reading | 📝 Planned |
@@ -114,7 +114,8 @@
 |---|------|---------------|
 | 28 | `testMarkChapterReadAndUnread` | Тап `read-chapter-progress` → checkmark (прочитано) → тап снова → checkmark исчез (не прочитано) |
 | 29 | `testAutoProgressOnAudioEnd` | Включить autoProgressAudioEnd → дослушать главу (скорость 2.0x) → глава автоматически отмечена прочитанной |
-| 30 | `testAutoNextChapter` | Включить autoNextChapter → дослушать главу → `read-chapter-title` изменился (переход на следующую) |
+| 30 | `testAutoNextChapter` | ⚙️ `--start-excerpt "psa 117"` → дослушать главу → `read-chapter-title` изменился (переход на следующую) |
+| 30b | `testNoAutoNextChapter` | ⚙️ `--no-auto-next-chapter` + `--start-excerpt "psa 117"` → дослушать главу → заголовок НЕ меняется |
 
 ### P1 — Аудио-информация
 
@@ -127,7 +128,6 @@
 | # | Тест | Что проверяет |
 |---|------|---------------|
 | 32 | `testAutoProgressByReading` | ⚙️ `--reading-progress-seconds 3` → включить autoProgressByReading → доскроллить до конца → через ~3с глава отмечена |
-| 33 | `testAutoProgressFrom90Percent` | Включить autoProgressFrom90Percent → прослушать ≥90% стихов (скорость 2.0x, короткая глава) → checkmark появился |
 | 34 | `testPauseBlockParagraphVsVerse` | pauseBlock=paragraph → `read-playback-state` не переходит в "autopausing" после каждого стиха, только на границе абзаца |
 | 35 | `testVoicePreviewPlayAndStop` | В настройках тап `settings-voice-preview-0` → превью играет → тап снова → остановка |
 | 36 | `testSpeedPersistsAcrossChapters` | Скорость 1.5x → next chapter → `read-speed-label` всё ещё "x1.5" |

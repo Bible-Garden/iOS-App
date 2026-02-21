@@ -11,6 +11,7 @@ enum TestingEnvironment {
     static let forceLoadErrorOnce = CommandLine.arguments.contains("--force-load-error-once")
     static let forceNoAudio = CommandLine.arguments.contains("--force-no-audio")
     static let autoProgressAudioEnd = CommandLine.arguments.contains("--auto-progress-audio-end")
+    static let noAutoNextChapter = CommandLine.arguments.contains("--no-auto-next-chapter")
     static let readingProgressSecondsOverride: Double? = {
         guard let idx = CommandLine.arguments.firstIndex(of: "--reading-progress-seconds"),
               idx + 1 < CommandLine.arguments.count,
