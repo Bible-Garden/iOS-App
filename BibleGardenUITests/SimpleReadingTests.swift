@@ -1230,6 +1230,61 @@ final class SimpleReadingAutoNextTests: XCTestCase {
         XCTAssertEqual(title.label, originalTitle,
                        "Chapter title should NOT change with autoNextChapter disabled")
     }
+
+    // #40 — Играем Псалом 117 на 2x, уходим в фон до окончания аудио.
+    // Результат: после возврата заголовок сменился — autoNextChapter сработал в фоне.
+    @MainActor
+    func testAutoNextChapterInBackground() throws {
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting",
+            "--start-excerpt", "psa 117"
+        ]
+        app.launch()
+        app.navigateToReadingPage()
+
+        let stateLabel = app.staticTexts["read-playback-state"]
+        guard stateLabel.waitForExistence(timeout: 10) else {
+            throw XCTSkip("Playback state label not found")
+        }
+        let waitingPredicate = NSPredicate(format: "label == %@", "waitingForPlay")
+        let waitExp = XCTNSPredicateExpectation(predicate: waitingPredicate, object: stateLabel)
+        _ = XCTWaiter.wait(for: [waitExp], timeout: 15)
+
+        let title = app.buttons["read-chapter-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        let originalTitle = title.label
+
+        // Скорость 2x
+        let speedBtn = app.buttons["read-speed"]
+        XCTAssertTrue(speedBtn.waitForExistence(timeout: 3))
+        for _ in 0..<5 { speedBtn.tap() }
+
+        // Play и сразу переключаем на последний стих
+        let playPause = app.buttons["read-play-pause"]
+        playPause.tap()
+        let playingPredicate = NSPredicate(format: "label == %@", "playing")
+        let playExp = XCTNSPredicateExpectation(predicate: playingPredicate, object: stateLabel)
+        _ = XCTWaiter.wait(for: [playExp], timeout: 10)
+
+        let nextVerse = app.buttons["read-next-verse"]
+        if nextVerse.waitForExistence(timeout: 3) {
+            Thread.sleep(forTimeInterval: 1)
+            nextVerse.tap()
+        }
+
+        // Уходим в фон — autoNextChapter должен сработать пока приложение в фоне
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 15)
+
+        // Возвращаемся
+        app.activate()
+        Thread.sleep(forTimeInterval: 2)
+
+        // Заголовок должен смениться — автопереход сработал в фоне
+        XCTAssertNotEqual(title.label, originalTitle,
+                          "Chapter title should change via autoNextChapter while in background. Was: \(originalTitle)")
+    }
 }
 
 // MARK: - SimpleReadingPauseTests (тесты пауз с --pause-type / --pause-block)
@@ -1339,6 +1394,41 @@ final class SimpleReadingPauseTests: XCTestCase {
             XCTAssertTrue(waitForPlaybackState("playing", timeout: 15),
                           "Should auto-resume after paragraph pause")
         }
+
+        playPause.tap() // stop
+    }
+
+    // #39 — Запускаем с pauseType=time + pauseBlock=verse, играем → уходим в фон.
+    // Результат: после возврата из фона время продвинулось — паузы корректно
+    // срабатывали и воспроизведение продолжалось в фоне.
+    @MainActor
+    func testPauseTimedVerseInBackground() throws {
+        launchWithPause(type: "time", block: "verse")
+
+        _ = waitForPlaybackState("waitingForPlay")
+
+        let playPause = app.buttons["read-play-pause"]
+        playPause.tap()
+        XCTAssertTrue(waitForPlaybackState("playing"), "Should start playing")
+
+        let timeCurrent = app.staticTexts["read-time-current"]
+        XCTAssertTrue(timeCurrent.waitForExistence(timeout: 3))
+        // Ждём чтобы время ушло от 00:00
+        _ = app.waitForLabelChange(element: timeCurrent, from: "00:00", timeout: 15)
+        let timeBeforeBackground = timeCurrent.label
+
+        // Уходим в фон — паузы между стихами должны работать в фоне
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 10)
+
+        // Возвращаемся
+        app.activate()
+        Thread.sleep(forTimeInterval: 1)
+
+        // Время должно увеличиться — аудио играло с паузами в фоне
+        let timeAfterBackground = timeCurrent.label
+        XCTAssertNotEqual(timeAfterBackground, timeBeforeBackground,
+                          "Time should advance during background playback with timed pauses. Before: \(timeBeforeBackground), after: \(timeAfterBackground)")
 
         playPause.tap() // stop
     }
