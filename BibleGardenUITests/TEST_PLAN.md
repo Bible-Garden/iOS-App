@@ -7,7 +7,7 @@
 | `BibleGardenUITests.swift` | App launch | ✅ Exists |
 | `MenuTests.swift` | Menu navigation | ✅ Exists (6 tests) |
 | `Helpers/XCUIApplication+Helpers.swift` | Shared helpers | ✅ Exists |
-| `SimpleReadingTests.swift` | Classic reading, audio, settings | ✅ 37 tests, 6 classes — all pass |
+| `SimpleReadingTests.swift` | Classic reading, audio, settings, pauses | ✅ 38 tests, 8 classes — all pass |
 | `MainTests.swift` | Main screen cards | 📝 Planned |
 | `ChapterSelectTests.swift` | OT/NT filter, book/chapter pick | 📝 Planned |
 | `MultiReadingTests.swift` | Multilingual setup + reading | 📝 Planned |
@@ -101,12 +101,13 @@
 
 ### P1 — Паузы (реальное поведение)
 
-Тесты используют `read-playback-state` (debug-only скрытый label) для проверки состояния.
+Тесты используют `read-playback-state` (debug-only скрытый label) для проверки состояния. Настройки пауз задаются через launch arguments `--pause-type` / `--pause-block`.
 
 | # | Тест | Что проверяет |
 |---|------|---------------|
-| 26 | `testPauseTypeTimedBehavior` | pauseType=time, pauseBlock=verse → play → после стиха `read-playback-state` == "autopausing" → через N сек снова "playing" |
-| 27 | `testPauseTypeFullBehavior` | pauseType=full, pauseBlock=verse → play → после стиха `read-playback-state` == "pausing" → остаётся "pausing" через 3с → ручной тап play → "playing" |
+| 26 | `testPauseTimedVerse` | ⚙️ `--pause-type time --pause-block verse` → play → после стиха "autopausing" → через N сек снова "playing" |
+| 27 | `testPauseFullVerse` | ⚙️ `--pause-type full --pause-block verse` → play → после стиха "pausing" → остаётся 5 сек, не возобновляется |
+| 34 | `testPauseTimedParagraph` | ⚙️ `--pause-type time --pause-block paragraph` → play на 2x → доигрывает до границы абзаца → "autopausing" → авто-возобновление |
 
 ### P1 — Прогресс и авто-прогресс
 
@@ -128,10 +129,10 @@
 | # | Тест | Что проверяет |
 |---|------|---------------|
 | 32 | `testAutoProgressByReading` | ⚙️ `--reading-progress-seconds 3` → включить autoProgressByReading → доскроллить до конца → через ~3с глава отмечена |
-| 34 | `testPauseBlockParagraphVsVerse` | pauseBlock=paragraph → `read-playback-state` не переходит в "autopausing" после каждого стиха, только на границе абзаца |
 | 35 | `testVoicePreviewPlayAndStop` | В настройках тап `settings-voice-preview-0` → превью играет → тап снова → остановка |
 | 36 | `testSpeedPersistsAcrossChapters` | Скорость 1.5x → next chapter → `read-speed-label` всё ещё "x1.5" |
 | 37 | `testFullReadingJourney` | E2E: открыть чтение → сменить translation/voice → play → дождаться autoNextChapter → в Progress глава отмечена |
+| 38 | `testBackgroundPlaybackContinues` | Play → home → 5 сек в фоне → activate → время увеличилось (аудио играло в фоне) |
 
 ---
 
@@ -156,26 +157,38 @@
 | `--force-load-error` | Симулирует ошибку загрузки главы, все запросы (#9) |
 | `--force-load-error-once` | One-shot: первый запрос → ошибка, последующие → нормально (#10) |
 | `--force-no-audio` | Симулирует отсутствие аудио (#11) |
-| `--start-excerpt <excerpt>` | Переопределяет начальный excerpt (напр. "gen 1", "rev 22") (#18, #19) |
+| `--start-excerpt <excerpt>` | Переопределяет начальный excerpt (напр. "gen 1", "rev 22") (#18, #19, #29, #30) |
 | `--reading-progress-seconds N` | Переопределяет порог авто-прогресса по чтению (#32, по умолчанию до 60с) |
+| `--auto-progress-audio-end` | Включает autoProgressAudioEnd + отключает autoNextChapter (#29) |
+| `--no-auto-next-chapter` | Отключает autoNextChapter (#30b) |
+| `--pause-type <type>` | Переопределяет тип паузы: none/time/full (#26, #27, #34) |
+| `--pause-block <block>` | Переопределяет блок паузы: verse/paragraph/fragment (#34) |
 
 #### Архитектура тестового класса ✅
 
-Три класса для разделения зависимостей:
+8 классов для разделения зависимостей:
 
 ```swift
-// Основной — тесты с живым API (#1-8, #12-37, кроме #18, #19, #32)
-// API health check один раз за test run через static var
+// Основной — тесты с живым API (#1-8, #12-25, #28, #31, #35-38)
 class SimpleReadingTests: XCTestCase { ... }
 
 // Forced-error тесты (#9, #10, #11) — НЕ зависят от API
 class SimpleReadingErrorTests: XCTestCase { ... }
 
-// Граничные главы (#18, #19) — отдельный launch с --start-excerpt
+// Авто-прогресс по чтению с --reading-progress-seconds (#32)
+class SimpleReadingAutoProgressTests: XCTestCase { ... }
+
+// Граничные главы с --start-excerpt (#18, #19)
 class SimpleReadingBoundaryTests: XCTestCase { ... }
 
-// Авто-прогресс с override launch args (#32)
-class SimpleReadingAutoProgressTests: XCTestCase { ... }
+// Авто-прогресс по аудио с --auto-progress-audio-end (#29)
+class SimpleReadingAudioEndProgressTests: XCTestCase { ... }
+
+// Автопереход с --start-excerpt (#30, #30b)
+class SimpleReadingAutoNextTests: XCTestCase { ... }
+
+// Паузы с --pause-type / --pause-block (#26, #27, #34)
+class SimpleReadingPauseTests: XCTestCase { ... }
 ```
 
 #### Стабильность и ожидания

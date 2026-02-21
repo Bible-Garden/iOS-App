@@ -27,6 +27,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             if TestingEnvironment.noAutoNextChapter {
                 UserDefaults.standard.set(false, forKey: "autoNextChapter")
             }
+            // Override pause settings if specified
+            if let pauseType = TestingEnvironment.pauseTypeOverride {
+                UserDefaults.standard.set(pauseType, forKey: "pauseType")
+            }
+            if let pauseBlock = TestingEnvironment.pauseBlockOverride {
+                UserDefaults.standard.set(pauseBlock, forKey: "pauseBlock")
+            }
         }
 
         // Preload WKWebView ahead of time

@@ -12,6 +12,16 @@ enum TestingEnvironment {
     static let forceNoAudio = CommandLine.arguments.contains("--force-no-audio")
     static let autoProgressAudioEnd = CommandLine.arguments.contains("--auto-progress-audio-end")
     static let noAutoNextChapter = CommandLine.arguments.contains("--no-auto-next-chapter")
+    static let pauseTypeOverride: String? = {
+        guard let idx = CommandLine.arguments.firstIndex(of: "--pause-type"),
+              idx + 1 < CommandLine.arguments.count else { return nil }
+        return CommandLine.arguments[idx + 1]
+    }()
+    static let pauseBlockOverride: String? = {
+        guard let idx = CommandLine.arguments.firstIndex(of: "--pause-block"),
+              idx + 1 < CommandLine.arguments.count else { return nil }
+        return CommandLine.arguments[idx + 1]
+    }()
     static let readingProgressSecondsOverride: Double? = {
         guard let idx = CommandLine.arguments.firstIndex(of: "--reading-progress-seconds"),
               idx + 1 < CommandLine.arguments.count,
