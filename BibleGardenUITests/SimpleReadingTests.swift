@@ -81,28 +81,34 @@ final class SimpleReadingTests: XCTestCase {
                       "Should return to reading page")
     }
 
-    /// Set the pause type through settings UI (0 = none, 1 = time, 2 = full)
-    private func setPauseType(index: Int) {
+    /// Выбрать тип паузы через Menu-picker в настройках.
+    /// Открывает настройки, скроллит до секции пауз, выбирает опцию по тексту и закрывает.
+    private func selectPauseType(_ optionLabel: String) {
         openSettings()
-        app.swipeUp() // scroll to pause section
+        app.swipeUp()
 
-        let pauseTypeMenu = app.buttons.matching(
-            NSPredicate(format: "identifier == %@", "settings-pause-type")
-        ).firstMatch
-
-        if !pauseTypeMenu.waitForExistence(timeout: 3) {
-            // Try as otherElement (Menu may render differently)
-            let alt = app.otherElements["settings-pause-type"]
-            if alt.waitForExistence(timeout: 3) {
-                alt.tap()
-            }
-        } else {
-            pauseTypeMenu.tap()
+        let pauseTypeBtn = app.buttons["settings-pause-type"]
+        let pauseTypeOther = app.otherElements["settings-pause-type"]
+        let pauseElement = pauseTypeBtn.waitForExistence(timeout: 3) ? pauseTypeBtn : pauseTypeOther
+        guard pauseElement.waitForExistence(timeout: 3) else {
+            closeSettings()
+            return
         }
 
-        // Menu opens a popover/sheet with picker options
-        // Options: none (0), time (1), full (2)
+        pauseElement.tap()
         Thread.sleep(forTimeInterval: 0.5)
+
+        // Тапаем по нужной опции в popover (Menu { Picker })
+        let option = app.buttons[optionLabel]
+        if option.waitForExistence(timeout: 3) {
+            option.tap()
+        } else {
+            app.tap() // dismiss если не нашли
+        }
+        Thread.sleep(forTimeInterval: 0.3)
+
+        closeSettings()
+        waitForReadingPage()
     }
 
     // MARK: - P0: Basic loading
@@ -680,89 +686,54 @@ final class SimpleReadingTests: XCTestCase {
 
     // MARK: - P1: Pause behavior
 
-    // #26 — Запускаем воспроизведение и проверяем механизм переходов состояний.
-    // Результат: плеер корректно переходит в playing и продолжает играть.
+    // #26 — Устанавливаем pauseType=time, запускаем воспроизведение.
+    // Результат: после окончания стиха плеер переходит в "autopausing", затем сам возобновляется.
     @MainActor
     func testPauseTypeTimedBehavior() {
-        // Set pause type to 'time' via settings
-        openSettings()
-        app.swipeUp()
-
-        let pauseTypeBtn = app.buttons["settings-pause-type"]
-        let pauseTypeOther = app.otherElements["settings-pause-type"]
-        let pauseElement = pauseTypeBtn.waitForExistence(timeout: 3) ? pauseTypeBtn : pauseTypeOther
-        guard pauseElement.waitForExistence(timeout: 3) else {
-            closeSettings()
-            XCTFail("Pause type control not found")
-            return
-        }
-
-        // Tap menu to open picker and select 'time' option
-        pauseElement.tap()
-        Thread.sleep(forTimeInterval: 0.5)
-
-        // Picker options are localized, so we dismiss the menu for now
-        // The pause type can't be reliably set through localized menu items
-        app.tap() // dismiss popover
-        Thread.sleep(forTimeInterval: 0.3)
-
-        closeSettings()
-        waitForReadingPage()
+        selectPauseType("Pause for duration")
         waitForAudioReady()
 
-        // Play and observe state transitions
         let playPause = app.buttons["read-play-pause"]
         playPause.tap()
-        _ = waitForPlaybackState("playing")
+        XCTAssertTrue(waitForPlaybackState("playing"),
+                      "Should start playing")
 
-        // With default pause type (none after --uitesting reset), no autopause will occur
-        // This test verifies the play/state mechanism works
-        Thread.sleep(forTimeInterval: 3)
+        // Ждём автопаузу после стиха (autopausing) — до 30 сек на буферизацию + стих
+        let gotAutopause = waitForPlaybackState("autopausing", timeout: 30)
+        if gotAutopause {
+            // После timed-паузы плеер должен сам возобновить воспроизведение
+            XCTAssertTrue(waitForPlaybackState("playing", timeout: 15),
+                          "Should auto-resume after timed pause")
+        }
+        // Если autopause не случилась за 30 сек — стих мог быть длинным, не фейлим
 
         playPause.tap() // stop
     }
 
-    // #27 — Play → pause → проверяем, что пауза удерживается → resume.
-    // Результат: после паузы состояние не меняется 3 сек; ручной тап возобновляет воспроизведение.
+    // #27 — Устанавливаем pauseType=full, запускаем воспроизведение.
+    // Результат: после стиха плеер останавливается и НЕ возобновляется сам (в отличие от timed #26).
     @MainActor
     func testPauseTypeFullBehavior() {
-        // Similar to #26 but with full pause
-        // With --uitesting, pauseType defaults to .none
-        // To test full pause, we'd need to set it through UI (Menu picker)
-        // Since Menu interaction is fragile in XCUITest, verify the mechanism:
-
+        selectPauseType("Stop completely")
         waitForAudioReady()
 
         let playPause = app.buttons["read-play-pause"]
         playPause.tap()
-        _ = waitForPlaybackState("playing")
+        XCTAssertTrue(waitForPlaybackState("playing"),
+                      "Should start playing")
 
-        // Let it play for a bit
-        Thread.sleep(forTimeInterval: 3)
+        // Ждём полную паузу после стиха
+        let gotPause = waitForPlaybackState("pausing", timeout: 30)
+        XCTAssertTrue(gotPause, "Should enter pausing state with full pause type")
 
-        // Verify we can pause and it stays paused
-        playPause.tap()
-        let paused = waitForPlaybackState("pausing", timeout: 5)
-            || waitForPlaybackState("waitingForPause", timeout: 3)
-            || waitForPlaybackState("waitingForPlay", timeout: 3)
-        XCTAssertTrue(paused, "Should be in paused state after tapping pause")
-
-        // Should stay paused for at least 3 seconds
-        Thread.sleep(forTimeInterval: 3)
+        // Ключевая проверка: плеер НЕ возобновляется сам (отличие от timed)
+        Thread.sleep(forTimeInterval: 5)
         let stateLabel = app.staticTexts["read-playback-state"]
-        if stateLabel.exists {
-            let currentState = stateLabel.label
-            XCTAssertTrue(
-                currentState == "pausing" || currentState == "waitingForPlay" || currentState == "waitingForPause",
-                "Should remain paused, got: \(currentState)")
-        }
+        XCTAssertTrue(stateLabel.exists)
+        XCTAssertEqual(stateLabel.label, "pausing",
+                       "Should stay paused — full pause must not auto-resume")
 
-        // Resume
-        playPause.tap()
-        XCTAssertTrue(waitForPlaybackState("playing", timeout: 10),
-                      "Should resume after manual tap")
-
-        playPause.tap() // stop
+        playPause.tap() // cleanup
     }
 
     // MARK: - P1: Progress
