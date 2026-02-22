@@ -376,7 +376,7 @@ class PlayerModel: ObservableObject {
             self?.isBufferingLong = true
         }
         self.bufferingIndicatorWork = indicatorWork
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: indicatorWork)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: indicatorWork)
 
         // Seek first, then signal readiness
         self.player.seek(to: CMTimeMake(value: Int64(periodFrom * 100), timescale: 100)) { [weak self] finished in
