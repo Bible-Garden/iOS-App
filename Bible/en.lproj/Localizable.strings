@@ -133,6 +133,8 @@
 "error.loading.example" = "Error loading example";
 "error.loading.audio" = "Failed to load audio";
 "error.audio.unavailable" = "Audio unavailable for this voice";
+"error.audio.stalled" = "Loading audio...";
+"error.audio.timeout" = "Connection timeout. Check your internet.";
 "page.read.chapter_subtitle" = "Chapter %@";
 
 "settings.pause.block.short.verse" = "verse";
@@ -184,10 +186,3 @@
 "page.read.reader" = "READER:";
 "page.read.of" = "of";
 "settings.speed" = "Speed";
-
-/* Audio status (slow network) */
-"audio.status.loading" = "Loading audio...";
-"audio.status.slow_network" = "Slow network, please wait...";
-"audio.error.load_failed" = "Failed to load audio";
-"audio.error.retry" = "Retry";
-"audio.error.skip_step" = "Skip step";

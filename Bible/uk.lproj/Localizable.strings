@@ -133,6 +133,8 @@
 "error.loading.example" = "Помилка завантаження прикладу";
 "error.loading.audio" = "Не вдалося завантажити аудіо";
 "error.audio.unavailable" = "Аудіо недоступне для цього голосу";
+"error.audio.stalled" = "Завантаження аудіо...";
+"error.audio.timeout" = "Таймаут підключення. Перевірте інтернет.";
 "page.read.chapter_subtitle" = "Розділ %@";
 
 "settings.pause.block.short.verse" = "вірш";
@@ -183,10 +185,3 @@
 "page.read.of" = "з";
 
 "settings.speed" = "Швидкість";
-
-/* Audio status (slow network) */
-"audio.status.loading" = "Завантаження аудіо...";
-"audio.status.slow_network" = "Повільна мережа, зачекайте...";
-"audio.error.load_failed" = "Не вдалося завантажити аудіо";
-"audio.error.retry" = "Повторити";
-"audio.error.skip_step" = "Пропустити крок";

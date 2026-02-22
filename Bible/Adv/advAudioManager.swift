@@ -18,7 +18,8 @@ class PlayerTimeObserver {
             guard let self = self else { return }
             // If we've not been told to pause our updates
             guard !self.paused else { return }
-            // Publish the new player time
+            // Only publish time when player is actually playing (not stalled/buffering)
+            guard self.player?.timeControlStatus == .playing else { return }
             self.publisher.send(time.seconds)
         }
     }
@@ -72,6 +73,7 @@ class PlayerModel: ObservableObject {
         case autopausing
         case finished
         case segmentFinished
+        case error
     }
     
     private let player: AVPlayer
@@ -88,20 +90,24 @@ class PlayerModel: ObservableObject {
     @Published var currentDuration: TimeInterval = 0
     @Published var currentTime: TimeInterval = 0
     @Published private(set) var currentSpeed: Float = 1.0
-    @Published var playbackError: Error? = nil
-
+    @Published var errorMessage: String? = nil
+    @Published var isStalled: Bool = false
+    @Published var isBufferingLong: Bool = false
+    
     private var oldState = PlaybackState.waitingForSelection
     private var audioVerses: [BibleAcousticalVerseFull] = []
     private var currentVerseIndex: Int = -1
     private var stopAtEnd = true
-
+    
     var onStartVerse: ((Int) -> Void)?
     var onEndVerse: (() -> Void)?
     var smoothPauseLength = 0.3
-
+    
     private var pauseTimer: Timer?
-    private var itemStatusObservation: NSKeyValueObservation?
-    private var bufferingWatchdog: Timer?
+    private var bufferingTimeoutWork: DispatchWorkItem?
+    private var bufferingIndicatorWork: DispatchWorkItem?
+    private var stalledSetWork: DispatchWorkItem?
+    private var currentItemURL: URL?
 
     private var itemTitle: String = ""
     private var itemSubtitle: String = ""
@@ -126,8 +132,10 @@ class PlayerModel: ObservableObject {
                 self?.currentDuration = duration
                 
                 if self?.state == .buffering {
-                    self?.bufferingWatchdog?.invalidate()
-                    self?.bufferingWatchdog = nil
+                    self?.bufferingTimeoutWork?.cancel()
+                    self?.bufferingIndicatorWork?.cancel()
+                    self?.isStalled = false
+                    self?.isBufferingLong = false
                     self?.state = .waitingForPlay
                     self?.player.seek(to: CMTimeMake(value: Int64(self!.periodFrom*100), timescale: 100))
                     self?.currentTime = self?.periodFrom ?? 0
@@ -145,15 +153,11 @@ class PlayerModel: ObservableObject {
         // Subscribe to interruption notifications
         NotificationCenter.default.addObserver(self, selector: #selector(handleInterruption), name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance())
             
-        // Observe position changes — only update during actual playback
-        // to prevent timeline jitter during buffering (Issue 6)
+        // Observe position changes
         timeObserver.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] time in
-                guard let self = self else { return }
-                if self.player.timeControlStatus == .playing {
-                    self.currentTime = time
-                }
+                self?.currentTime = time
             }
             .store(in: &cancellables)
         
@@ -168,19 +172,57 @@ class PlayerModel: ObservableObject {
             guard let item = notification.object as? AVPlayerItem, item == self.player.currentItem else {
                  return
             }
-            
+
             // Update state and perform cleanup when track reaches the end
             self.state = .finished
         }
+
+        // Observe AVPlayerItem status to detect loading failures (network errors, invalid URLs)
+        player.publisher(for: \.currentItem?.status)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                guard let self = self else { return }
+                if status == .failed {
+                    self.bufferingTimeoutWork?.cancel()
+                    self.state = .error
+                    self.errorMessage = self.player.currentItem?.error?.localizedDescription
+                        ?? "error.loading.audio".localized
+                }
+            }
+            .store(in: &cancellables)
+
+        // Observe timeControlStatus to detect real buffering after playback started
+        player.publisher(for: \.timeControlStatus)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                guard let self = self else { return }
+                if status == .waitingToPlayAtSpecifiedRate && self.state == .playing {
+                    // Delay showing stalled indicator — brief waits during seeks are normal,
+                    // only show indicator if stall persists for 0.5s
+                    self.stalledSetWork?.cancel()
+                    let setWork = DispatchWorkItem { [weak self] in
+                        guard let self = self,
+                              self.player.timeControlStatus == .waitingToPlayAtSpecifiedRate,
+                              self.state == .playing else { return }
+                        self.isStalled = true
+                    }
+                    self.stalledSetWork = setWork
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: setWork)
+                } else if status == .playing {
+                    // Immediately clear stalled indicator when audio resumes
+                    self.stalledSetWork?.cancel()
+                    self.isStalled = false
+                }
+            }
+            .store(in: &cancellables)
     }
     
     deinit {
-        // Important: remove observer to avoid leaks
+        // Important: remove observers to avoid leaks
         if let endPlayingObserver = endPlayingObserver {
             NotificationCenter.default.removeObserver(endPlayingObserver)
         }
-        itemStatusObservation?.invalidate()
-        bufferingWatchdog?.invalidate()
+        bufferingTimeoutWork?.cancel()
     }
     
     @objc private func handleInterruption(notification: Notification) {
@@ -232,22 +274,33 @@ class PlayerModel: ObservableObject {
     // MARK: Set up new track parameters
     func setItem(playerItem: AVPlayerItem, periodFrom: Double, periodTo: Double, audioVerses: [BibleAcousticalVerseFull], itemTitle: String, itemSubtitle: String) {
 
+        // If the same item is already loaded — just seek, no re-buffering
+        if player.currentItem === playerItem {
+            seekToSegment(periodFrom: periodFrom, periodTo: periodTo, audioVerses: audioVerses, itemTitle: itemTitle, itemSubtitle: itemSubtitle)
+            return
+        }
+
         self.oldState = self.state
         if self.state == .playing {
             self.pauseSimple()
         }
+
+        // Store URL for retry capability
+        self.currentItemURL = (playerItem.asset as? AVURLAsset)?.url
 
         self.periodFrom = periodFrom
         self.periodTo = periodTo
 
         self.audioVerses = audioVerses
         self.currentVerseIndex = -1
-        self.stopAtEnd = true
 
-        // Clear previous error and watchdog
-        self.playbackError = nil
-        self.itemStatusObservation?.invalidate()
-        self.bufferingWatchdog?.invalidate()
+        // Clear previous error/buffering state
+        self.errorMessage = nil
+        self.isStalled = false
+        self.isBufferingLong = false
+        self.bufferingTimeoutWork?.cancel()
+        self.bufferingIndicatorWork?.cancel()
+        self.stalledSetWork?.cancel()
 
         // Force state change to ensure observers are notified (even if already buffering)
         self.state = .waitingForSelection
@@ -264,33 +317,34 @@ class PlayerModel: ObservableObject {
 
         self.player.replaceCurrentItem(with: playerItem)
 
-        // Observe item status for load failures
-        self.itemStatusObservation = playerItem.observe(\.status, options: [.new]) { [weak self] item, _ in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if item.status == .failed {
-                    self.bufferingWatchdog?.invalidate()
-                    self.playbackError = item.error ?? NSError(domain: "PlayerModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unknown playback error"])
-                    self.player.pause()
-                    self.state = .waitingForSelection
-                }
-            }
+        // Start buffering timeout — if duration doesn't arrive within 15s, report error
+        let timeoutWork = DispatchWorkItem { [weak self] in
+            guard let self = self, self.state == .buffering else { return }
+            self.state = .error
+            self.errorMessage = "error.audio.timeout".localized
         }
+        self.bufferingTimeoutWork = timeoutWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: timeoutWork)
 
-        // Watchdog: if buffering takes longer than 15s, treat as error
-        self.bufferingWatchdog = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { [weak self] _ in
-            DispatchQueue.main.async {
-                guard let self = self, self.state == .buffering else { return }
-                self.playbackError = NSError(domain: "PlayerModel", code: -2, userInfo: [NSLocalizedDescriptionKey: "Buffering timeout"])
-                self.player.pause()
-                self.state = .waitingForSelection
-            }
+        // Show buffering indicator only after a brief delay (avoid flashes on quick transitions)
+        let indicatorWork = DispatchWorkItem { [weak self] in
+            guard let self = self, self.state == .buffering else { return }
+            self.isBufferingLong = true
         }
+        self.bufferingIndicatorWork = indicatorWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: indicatorWork)
     }
 
-    // MARK: Seek to segment (reuse current item)
-    /// Switches to a different segment within the same audio item without replacing it.
-    /// Used in multilingual reading when the same translation plays a different unit.
+    /// Fast seek within an already-loaded player item — reuses the same AVPlayerItem,
+    /// just updates verse boundaries and seeks to the new position.
+    ///
+    /// IMPORTANT: Does NOT set state to `.buffering` — the duration observer would
+    /// immediately transition to `.waitingForPlay` (duration is already known for the
+    /// reused item), causing `doPlayOrPause()` to call `player.play()` BEFORE the seek
+    /// completes, playing audio from the old position.
+    ///
+    /// Instead, shows `isBufferingLong` indicator directly (without state change) if
+    /// the seek takes longer than 0.3s.
     func seekToSegment(periodFrom: Double, periodTo: Double, audioVerses: [BibleAcousticalVerseFull], itemTitle: String, itemSubtitle: String) {
         if self.state == .playing {
             self.player.pause()
@@ -301,7 +355,13 @@ class PlayerModel: ObservableObject {
         self.audioVerses = audioVerses
         self.currentVerseIndex = -1
         self.stopAtEnd = true
-        self.playbackError = nil
+
+        self.errorMessage = nil
+        self.isStalled = false
+        self.isBufferingLong = false
+        self.bufferingTimeoutWork?.cancel()
+        self.bufferingIndicatorWork?.cancel()
+        self.stalledSetWork?.cancel()
 
         self.deleteObservation()
         self.setObservation()
@@ -310,32 +370,33 @@ class PlayerModel: ObservableObject {
         self.itemSubtitle = itemSubtitle
         self.setupNowPlaying()
 
-        self.state = .waitingForPlay
-        self.player.seek(to: CMTimeMake(value: Int64(periodFrom * 100), timescale: 100))
-        self.currentTime = periodFrom
-        self.findAndSetCurrentVerseIndex()
+        // Show loading indicator if seek takes >0.3s (slow network, data not yet buffered)
+        // Uses isBufferingLong directly — NOT .buffering state (see doc comment above)
+        let indicatorWork = DispatchWorkItem { [weak self] in
+            self?.isBufferingLong = true
+        }
+        self.bufferingIndicatorWork = indicatorWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: indicatorWork)
+
+        // Seek first, then signal readiness
+        self.player.seek(to: CMTimeMake(value: Int64(periodFrom * 100), timescale: 100)) { [weak self] finished in
+            guard let self = self, finished else { return }
+            self.bufferingIndicatorWork?.cancel()
+            self.isBufferingLong = false
+            self.currentTime = periodFrom
+            self.findAndSetCurrentVerseIndex()
+            self.state = .waitingForPlay
+        }
     }
 
-    // MARK: Stop (full reset)
-    /// Fully stops playback and releases resources. Used when navigating to a new chapter.
-    func stop() {
-        player.pause()
-        deleteObservation()
-        itemStatusObservation?.invalidate()
-        itemStatusObservation = nil
-        bufferingWatchdog?.invalidate()
-        bufferingWatchdog = nil
-        player.replaceCurrentItem(with: nil)
-        audioVerses = []
-        currentVerseIndex = -1
-        currentTime = 0
-        currentDuration = 0
-        periodFrom = 0
-        periodTo = 0
-        playbackError = nil
-        state = .waitingForSelection
+    /// Retry loading audio from the same URL (after a network error)
+    func retry() {
+        guard state == .error, let url = currentItemURL else { return }
+        let newItem = AVPlayerItem(url: url)
+        setItem(playerItem: newItem, periodFrom: periodFrom, periodTo: periodTo,
+                audioVerses: audioVerses, itemTitle: itemTitle, itemSubtitle: itemSubtitle)
     }
-    
+
     // Remove previous observers if needed
     private func deleteObservation() {
         if let observerBegin = boundaryObserverBegin {
@@ -401,6 +462,19 @@ class PlayerModel: ObservableObject {
         }
     }
     
+    /// Immediately stop playback (used before chapter switch to prevent old audio leaking)
+    func stop() {
+        player.pause()
+        if state == .playing || state == .buffering || state == .autopausing {
+            state = .pausing
+        }
+        isStalled = false
+        isBufferingLong = false
+        bufferingTimeoutWork?.cancel()
+        bufferingIndicatorWork?.cancel()
+        stalledSetWork?.cancel()
+    }
+
     // MARK: Play/Pause handling
     func doPlayOrPause() {
         if self.state == .playing {
@@ -409,6 +483,9 @@ class PlayerModel: ObservableObject {
         }
         else if state == .buffering {
             // Do nothing while buffering
+        }
+        else if state == .error {
+            retry()
         }
         else if state == .finished {
             self.restart()
@@ -426,6 +503,7 @@ class PlayerModel: ObservableObject {
     private func playSimple() {
         self.player.play()
         self.state = .playing
+        self.isBufferingLong = false
     }
     
     private func pauseSimple() {
@@ -523,7 +601,8 @@ class PlayerModel: ObservableObject {
     }
     
     func previousVerse() {
-        if state == .playing && currentVerseIndex > 0 {
+        let navigableStates: [PlaybackState] = [.playing, .pausing, .autopausing, .buffering, .error]
+        if navigableStates.contains(state) && currentVerseIndex > 0 {
             setCurrentVerseIndex(currentVerseIndex - 1)
             
             let begin = audioVerses[currentVerseIndex].begin
@@ -538,7 +617,8 @@ class PlayerModel: ObservableObject {
     }
     
     func nextVerse() {
-        if state == .playing && currentVerseIndex+1 < audioVerses.count {
+        let navigableStates: [PlaybackState] = [.playing, .pausing, .autopausing, .buffering, .error]
+        if navigableStates.contains(state) && currentVerseIndex+1 < audioVerses.count {
             setCurrentVerseIndex(currentVerseIndex + 1)
             let begin = audioVerses[currentVerseIndex].begin
             // Step slightly back to make the transition smoother
