@@ -667,6 +667,7 @@ struct PageMultilingualReadView: View {
         // Reset playback state
         currentUnitIndex = 0
         currentStepIndex = 0
+        highlightVerseNumber = nil
         isPlaying = false
 
         isLoading = false
