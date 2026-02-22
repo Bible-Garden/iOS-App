@@ -11,6 +11,8 @@ struct PageMultilingualReadView: View {
     @State private var stepTextVerses: [Int: [BibleTextualVerseFull]] = [:]
     @State private var stepAudioVerses: [Int: [BibleAcousticalVerseFull]] = [:]
     @State private var stepAudioUrls: [Int: String] = [:]
+    @State private var stepAVAssets: [Int: AVAsset] = [:]            // Cached AVAsset per read step (reusable across items)
+    @State private var currentPlayerItemReadIndex: Int? = nil       // Which read step's asset is currently loaded in the player
     
     // Navigation
     @State private var prevExcerpt: String = ""
@@ -57,6 +59,10 @@ struct PageMultilingualReadView: View {
     
     // Current verse for highlighting
     @State private var highlightVerseNumber: Int? = nil
+
+    // Buffering status
+    @State private var isSlowBuffering: Bool = false
+    @State private var bufferingTimerID: UUID = UUID()
     
     // Reading steps (only read steps from the template)
     private var readSteps: [MultilingualStep] {
@@ -168,12 +174,13 @@ struct PageMultilingualReadView: View {
                         } label: {
                             Image(systemName: "chevron.backward.2")
                                 .font(.system(size: 18))
-                                .foregroundColor(prevExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
+                                .foregroundColor((prevExcerpt.isEmpty || isLoading) ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
                                 .padding(10)
                         }
-                        
+                        .disabled(prevExcerpt.isEmpty || isLoading)
+
                         Spacer()
-                        
+
                         // Next Chapter
                         Button {
                             if !nextExcerpt.isEmpty {
@@ -185,12 +192,13 @@ struct PageMultilingualReadView: View {
                         } label: {
                             Image(systemName: "chevron.forward.2")
                                 .font(.system(size: 18))
-                                .foregroundColor(nextExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
+                                .foregroundColor((nextExcerpt.isEmpty || isLoading) ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
                                 .padding(10)
                         }
+                        .disabled(nextExcerpt.isEmpty || isLoading)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 10) 
+                    .padding(.bottom, 10)
                 }
                 .edgesIgnoringSafeArea(.bottom)
             }
@@ -229,6 +237,21 @@ struct PageMultilingualReadView: View {
         }
         .onChange(of: settingsManager.autoProgressFrom90Percent) { _ in
             evaluateNinetyPercentAutoProgress()
+        }
+        .onChange(of: audiopleer.state) { _ in
+            if audiopleer.state == .buffering {
+                isSlowBuffering = false
+                let timerID = UUID()
+                bufferingTimerID = timerID
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    if bufferingTimerID == timerID && audiopleer.state == .buffering {
+                        isSlowBuffering = true
+                    }
+                }
+            } else {
+                isSlowBuffering = false
+                bufferingTimerID = UUID()  // Invalidate any pending timer
+            }
         }
     }
     
@@ -296,9 +319,58 @@ struct PageMultilingualReadView: View {
                 .padding(.vertical, 10)
 
                 viewChapterMarkToggle()
-                
+
+                // Buffering / Error status
+                if audiopleer.playbackError != nil {
+                    VStack(spacing: 8) {
+                        Text("audio.error.load_failed".localized)
+                            .foregroundColor(.pink)
+                            .font(.footnote)
+                        HStack(spacing: 12) {
+                            Button {
+                                retryCurrentStep()
+                            } label: {
+                                Text("audio.error.retry".localized)
+                                    .font(.footnote)
+                                    .foregroundColor(Color("Mustard"))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                                    .background(Color("Mustard").opacity(0.2))
+                                    .cornerRadius(8)
+                            }
+                            Button {
+                                moveToNextStep()
+                            } label: {
+                                Text("audio.error.skip_step".localized)
+                                    .font(.footnote)
+                                    .foregroundColor(Color("localAccentColor"))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                                    .background(Color("localAccentColor").opacity(0.2))
+                                    .cornerRadius(8)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, globalBasePadding)
+                } else if audiopleer.state == .buffering {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .tint(Color("localAccentColor"))
+                            .scaleEffect(0.8)
+                        Text(isSlowBuffering ? "audio.status.slow_network".localized : "audio.status.loading".localized)
+                            .foregroundColor(Color("localAccentColor").opacity(0.7))
+                            .font(.footnote)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, globalBasePadding)
+                }
+
                 // Control buttons row - matching PageReadView style
                 HStack {
+                    let isTransportDisabled = isLoading || audiopleer.playbackError != nil || audiopleer.state == .buffering
+                    let transportColor = isTransportDisabled ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor")
+
                     // Previous chapter
                     Button {
                         if !prevExcerpt.isEmpty {
@@ -309,29 +381,32 @@ struct PageMultilingualReadView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.backward.2")
-                            .foregroundColor(prevExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
+                            .foregroundColor((prevExcerpt.isEmpty || isLoading) ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
                     }
+                    .disabled(prevExcerpt.isEmpty || isLoading)
                     Spacer()
-                    
+
                     // Previous Unit (Block)
                     Button {
                         moveToPreviousUnit()
                     } label: {
                         Image(systemName: "arrow.up.square")
                             .font(.system(size: 22))
-                            .foregroundColor(currentUnitIndex > 0 ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
+                            .foregroundColor(currentUnitIndex > 0 && !isTransportDisabled ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
                     }
+                    .disabled(currentUnitIndex <= 0 || isTransportDisabled)
                     Spacer()
-                    
+
                     // Previous content (step or unit)
                     Button {
                         moveToPreviousSection()
                     } label: {
                         Image(systemName: "arrow.turn.left.up")
-                            .foregroundColor(currentUnitIndex > 0 || currentStepIndex > 0 ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
+                            .foregroundColor((currentUnitIndex > 0 || currentStepIndex > 0) && !isTransportDisabled ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
                     }
+                    .disabled((currentUnitIndex <= 0 && currentStepIndex <= 0) || isTransportDisabled)
                     Spacer()
-                    
+
                     // Play/Pause
                     Button {
                         togglePlayPause()
@@ -346,29 +421,32 @@ struct PageMultilingualReadView: View {
                             }
                         }
                         .font(.system(size: 55))
-                        .foregroundColor(Color("localAccentColor"))
+                        .foregroundColor(transportColor)
                     }
+                    .disabled(isTransportDisabled)
                     Spacer()
-                    
+
                     // Next content (step or unit)
                     Button {
                         moveToNextSection()
                     } label: {
                         Image(systemName: "arrow.turn.right.down")
-                            .foregroundColor(currentUnitIndex < unitRanges.count - 1 ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
+                            .foregroundColor(!isTransportDisabled ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
                     }
+                    .disabled(isTransportDisabled)
                     Spacer()
-                    
+
                     // Next Unit (Block)
                     Button {
                         moveToNextUnit()
                     } label: {
                         Image(systemName: "arrow.down.square")
                             .font(.system(size: 22))
-                            .foregroundColor(currentUnitIndex < unitRanges.count - 1 ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
+                            .foregroundColor(currentUnitIndex < unitRanges.count - 1 && !isTransportDisabled ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
                     }
+                    .disabled(currentUnitIndex >= unitRanges.count - 1 || isTransportDisabled)
                     Spacer()
-                    
+
                     // Next chapter
                     Button {
                         if !nextExcerpt.isEmpty {
@@ -379,8 +457,9 @@ struct PageMultilingualReadView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.forward.2")
-                            .foregroundColor(nextExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
+                            .foregroundColor((nextExcerpt.isEmpty || isLoading) ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
                     }
+                    .disabled(nextExcerpt.isEmpty || isLoading)
                 }
                 .foregroundColor(Color("localAccentColor"))
                 .padding(.horizontal, globalBasePadding)
@@ -438,7 +517,13 @@ struct PageMultilingualReadView: View {
 
     private var audioPanelHeight: CGFloat {
         // Base panel height + a small row for the chapter mark toggle.
-        180 + 24
+        var height: CGFloat = 180 + 24
+        if audiopleer.playbackError != nil {
+            height += 50
+        } else if audiopleer.state == .buffering {
+            height += 30
+        }
+        return height
     }
     
     // Get current read step
@@ -571,6 +656,7 @@ struct PageMultilingualReadView: View {
         // Avoid reloading if data exists (preserves state on return from Settings)
         if !force && !stepTextVerses.isEmpty { return }
         isUpdatingExcerpt = true
+        audiopleer.stop()  // Immediately stop old audio before loading new data
         stopAudioMonitoring()
         isPlaying = false
         invalidateAudioProgressTracking()
@@ -582,6 +668,8 @@ struct PageMultilingualReadView: View {
         stepTextVerses = [:]
         stepAudioVerses = [:]
         stepAudioUrls = [:]
+        stepAVAssets = [:]
+        currentPlayerItemReadIndex = nil
         
         // Load data for each read step
         for (index, step) in readSteps.enumerated() {
@@ -596,6 +684,11 @@ struct PageMultilingualReadView: View {
                 stepTextVerses[index] = textVerses
                 stepAudioVerses[index] = audioVerses
                 stepAudioUrls[index] = audioUrl
+
+                // Pre-create AVAsset for this step (caches downloaded data, reusable across items)
+                if !audioUrl.isEmpty, let url = URL(string: audioUrl) {
+                    stepAVAssets[index] = AVURLAsset(url: url)
+                }
                 
                 // Use first step's data for navigation info
                 if index == 0, let part = part {
@@ -756,6 +849,21 @@ struct PageMultilingualReadView: View {
         }
     }
     
+    /// Retry after error: invalidate cached asset for current step, then replay.
+    private func retryCurrentStep() {
+        // Find which read step we're on
+        if currentStepIndex < allSteps.count {
+            let step = allSteps[currentStepIndex]
+            if step.type == .read, let readIndex = readSteps.firstIndex(where: { $0.id == step.id }) {
+                // Invalidate cached AVAsset (might be corrupted)
+                stepAVAssets[readIndex] = nil
+                // Force item recreation by clearing the current index
+                currentPlayerItemReadIndex = nil
+            }
+        }
+        playCurrentStep()
+    }
+
     private func playCurrentStep(skipPause: Bool = false) {
         guard currentStepIndex < allSteps.count else {
             moveToNextUnit()
@@ -840,24 +948,45 @@ struct PageMultilingualReadView: View {
                 return
             }
             
-            // Set up audio player
-            let playerItem = AVPlayerItem(url: url)
+            // Set up audio player — reuse cached AVAsset, seekToSegment for same translation
             let from = unitAudioVerses.first!.begin
             let to = unitAudioVerses.last!.end
             let trackingSessionID = UUID()
             verseTrackingSessionID = trackingSessionID
             currentAudioVerseNumber = -1
-            
+
             print("[MultiRead] Setting up audio from \(from) to \(to) with \(unitAudioVerses.count) verses")
-            
-            audiopleer.setItem(
-                playerItem: playerItem,
-                periodFrom: from,
-                periodTo: to,
-                audioVerses: unitAudioVerses,
-                itemTitle: excerptTitle,
-                itemSubtitle: step.translationName
-            )
+
+            if currentPlayerItemReadIndex == readIndex && audiopleer.playbackError == nil {
+                // Same translation, no error — just seek within the already-loaded item (no buffering)
+                audiopleer.seekToSegment(
+                    periodFrom: from,
+                    periodTo: to,
+                    audioVerses: unitAudioVerses,
+                    itemTitle: excerptTitle,
+                    itemSubtitle: step.translationName
+                )
+            } else {
+                // Different translation or retry after error — create fresh AVPlayerItem from cached AVAsset
+                let asset: AVAsset
+                if let cachedAsset = stepAVAssets[readIndex] {
+                    asset = cachedAsset
+                } else {
+                    asset = AVURLAsset(url: url)
+                    stepAVAssets[readIndex] = asset
+                }
+                // Always create a fresh AVPlayerItem (AVAsset caches audio data; AVPlayerItem is just a cursor)
+                let playerItem = AVPlayerItem(asset: asset)
+                audiopleer.setItem(
+                    playerItem: playerItem,
+                    periodFrom: from,
+                    periodTo: to,
+                    audioVerses: unitAudioVerses,
+                    itemTitle: excerptTitle,
+                    itemSubtitle: step.translationName
+                )
+                currentPlayerItemReadIndex = readIndex
+            }
             
             // Set speed for this step
             audiopleer.setSpeed(speed: Float(step.playbackSpeed))

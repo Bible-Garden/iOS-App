@@ -88,18 +88,21 @@ class PlayerModel: ObservableObject {
     @Published var currentDuration: TimeInterval = 0
     @Published var currentTime: TimeInterval = 0
     @Published private(set) var currentSpeed: Float = 1.0
-    
+    @Published var playbackError: Error? = nil
+
     private var oldState = PlaybackState.waitingForSelection
     private var audioVerses: [BibleAcousticalVerseFull] = []
     private var currentVerseIndex: Int = -1
     private var stopAtEnd = true
-    
+
     var onStartVerse: ((Int) -> Void)?
     var onEndVerse: (() -> Void)?
     var smoothPauseLength = 0.3
-    
+
     private var pauseTimer: Timer?
-    
+    private var itemStatusObservation: NSKeyValueObservation?
+    private var bufferingWatchdog: Timer?
+
     private var itemTitle: String = ""
     private var itemSubtitle: String = ""
     
@@ -123,6 +126,8 @@ class PlayerModel: ObservableObject {
                 self?.currentDuration = duration
                 
                 if self?.state == .buffering {
+                    self?.bufferingWatchdog?.invalidate()
+                    self?.bufferingWatchdog = nil
                     self?.state = .waitingForPlay
                     self?.player.seek(to: CMTimeMake(value: Int64(self!.periodFrom*100), timescale: 100))
                     self?.currentTime = self?.periodFrom ?? 0
@@ -140,11 +145,15 @@ class PlayerModel: ObservableObject {
         // Subscribe to interruption notifications
         NotificationCenter.default.addObserver(self, selector: #selector(handleInterruption), name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance())
             
-        // Observe position changes
+        // Observe position changes — only update during actual playback
+        // to prevent timeline jitter during buffering (Issue 6)
         timeObserver.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] time in
-                self?.currentTime = time
+                guard let self = self else { return }
+                if self.player.timeControlStatus == .playing {
+                    self.currentTime = time
+                }
             }
             .store(in: &cancellables)
         
@@ -170,6 +179,8 @@ class PlayerModel: ObservableObject {
         if let endPlayingObserver = endPlayingObserver {
             NotificationCenter.default.removeObserver(endPlayingObserver)
         }
+        itemStatusObservation?.invalidate()
+        bufferingWatchdog?.invalidate()
     }
     
     @objc private func handleInterruption(notification: Notification) {
@@ -220,33 +231,109 @@ class PlayerModel: ObservableObject {
 
     // MARK: Set up new track parameters
     func setItem(playerItem: AVPlayerItem, periodFrom: Double, periodTo: Double, audioVerses: [BibleAcousticalVerseFull], itemTitle: String, itemSubtitle: String) {
-        
+
         self.oldState = self.state
         if self.state == .playing {
             self.pauseSimple()
         }
-        
+
         self.periodFrom = periodFrom
         self.periodTo = periodTo
-        
+
         self.audioVerses = audioVerses
         self.currentVerseIndex = -1
-        
+        self.stopAtEnd = true
+
+        // Clear previous error and watchdog
+        self.playbackError = nil
+        self.itemStatusObservation?.invalidate()
+        self.bufferingWatchdog?.invalidate()
+
         // Force state change to ensure observers are notified (even if already buffering)
         self.state = .waitingForSelection
         self.state = .buffering
         self.currentTime = 0
         self.currentDuration = 0
-        
+
         self.deleteObservation()
         self.setObservation()
-        
+
         self.itemTitle = itemTitle
         self.itemSubtitle = itemSubtitle
         self.setupNowPlaying()
-        
+
         self.player.replaceCurrentItem(with: playerItem)
-        
+
+        // Observe item status for load failures
+        self.itemStatusObservation = playerItem.observe(\.status, options: [.new]) { [weak self] item, _ in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if item.status == .failed {
+                    self.bufferingWatchdog?.invalidate()
+                    self.playbackError = item.error ?? NSError(domain: "PlayerModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unknown playback error"])
+                    self.player.pause()
+                    self.state = .waitingForSelection
+                }
+            }
+        }
+
+        // Watchdog: if buffering takes longer than 15s, treat as error
+        self.bufferingWatchdog = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self = self, self.state == .buffering else { return }
+                self.playbackError = NSError(domain: "PlayerModel", code: -2, userInfo: [NSLocalizedDescriptionKey: "Buffering timeout"])
+                self.player.pause()
+                self.state = .waitingForSelection
+            }
+        }
+    }
+
+    // MARK: Seek to segment (reuse current item)
+    /// Switches to a different segment within the same audio item without replacing it.
+    /// Used in multilingual reading when the same translation plays a different unit.
+    func seekToSegment(periodFrom: Double, periodTo: Double, audioVerses: [BibleAcousticalVerseFull], itemTitle: String, itemSubtitle: String) {
+        if self.state == .playing {
+            self.player.pause()
+        }
+
+        self.periodFrom = periodFrom
+        self.periodTo = periodTo
+        self.audioVerses = audioVerses
+        self.currentVerseIndex = -1
+        self.stopAtEnd = true
+        self.playbackError = nil
+
+        self.deleteObservation()
+        self.setObservation()
+
+        self.itemTitle = itemTitle
+        self.itemSubtitle = itemSubtitle
+        self.setupNowPlaying()
+
+        self.state = .waitingForPlay
+        self.player.seek(to: CMTimeMake(value: Int64(periodFrom * 100), timescale: 100))
+        self.currentTime = periodFrom
+        self.findAndSetCurrentVerseIndex()
+    }
+
+    // MARK: Stop (full reset)
+    /// Fully stops playback and releases resources. Used when navigating to a new chapter.
+    func stop() {
+        player.pause()
+        deleteObservation()
+        itemStatusObservation?.invalidate()
+        itemStatusObservation = nil
+        bufferingWatchdog?.invalidate()
+        bufferingWatchdog = nil
+        player.replaceCurrentItem(with: nil)
+        audioVerses = []
+        currentVerseIndex = -1
+        currentTime = 0
+        currentDuration = 0
+        periodFrom = 0
+        periodTo = 0
+        playbackError = nil
+        state = .waitingForSelection
     }
     
     // Remove previous observers if needed

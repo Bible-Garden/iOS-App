@@ -183,3 +183,10 @@
 "page.read.of" = "з";
 
 "settings.speed" = "Швидкість";
+
+/* Audio status (slow network) */
+"audio.status.loading" = "Завантаження аудіо...";
+"audio.status.slow_network" = "Повільна мережа, зачекайте...";
+"audio.error.load_failed" = "Не вдалося завантажити аудіо";
+"audio.error.retry" = "Повторити";
+"audio.error.skip_step" = "Пропустити крок";

@@ -184,3 +184,10 @@
 "page.read.reader" = "READER:";
 "page.read.of" = "of";
 "settings.speed" = "Speed";
+
+/* Audio status (slow network) */
+"audio.status.loading" = "Loading audio...";
+"audio.status.slow_network" = "Slow network, please wait...";
+"audio.error.load_failed" = "Failed to load audio";
+"audio.error.retry" = "Retry";
+"audio.error.skip_step" = "Skip step";

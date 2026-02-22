@@ -184,3 +184,10 @@
 "page.read.reader" = "ЧИТАЕТ:";
 "page.read.of" = "из";
 "settings.speed" = "Скорость";
+
+/* Audio status (slow network) */
+"audio.status.loading" = "Загрузка аудио...";
+"audio.status.slow_network" = "Сеть медленная, подождите...";
+"audio.error.load_failed" = "Не удалось загрузить аудио";
+"audio.error.retry" = "Повторить";
+"audio.error.skip_step" = "Пропустить шаг";
