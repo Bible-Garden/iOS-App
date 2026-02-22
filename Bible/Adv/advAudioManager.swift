@@ -362,10 +362,19 @@ class PlayerModel: ObservableObject {
         self.itemSubtitle = itemSubtitle
         self.setupNowPlaying()
 
+        // Show buffering indicator if seek takes longer than 0.1s (slow network / unbuffered region)
+        let indicatorWork = DispatchWorkItem { [weak self] in
+            self?.isBufferingLong = true
+        }
+        self.bufferingIndicatorWork = indicatorWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: indicatorWork)
+
         // Seek first, then signal readiness — avoids brief .waitingToPlayAtSpecifiedRate
         // that would trigger the stalled indicator
         self.player.seek(to: CMTimeMake(value: Int64(periodFrom * 100), timescale: 100)) { [weak self] finished in
             guard let self = self, finished else { return }
+            self.bufferingIndicatorWork?.cancel()
+            self.isBufferingLong = false
             self.currentTime = periodFrom
             self.findAndSetCurrentVerseIndex()
             self.state = .waitingForPlay
