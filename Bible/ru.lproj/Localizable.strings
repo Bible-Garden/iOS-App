@@ -99,7 +99,7 @@
 "settings.add_choice" = "Добавить";
 "settings.cancel_choice" = "Отмена";
 "settings.warning" = "Внимание!";
-"settings.select_language" = "Выберите язык Библии";
+"settings.select_language" = "Выберите язык";
 "settings.select_translation" = "Выберите перевод";
 "settings.select_reader" = "Выберите кто читает";
 
@@ -133,6 +133,8 @@
 "error.loading.example" = "Ошибка загрузки примера";
 "error.loading.audio" = "Не удалось загрузить аудио";
 "error.audio.unavailable" = "Аудио недоступно для этого голоса";
+"error.audio.stalled" = "Загрузка аудио...";
+"error.audio.timeout" = "Таймаут подключения. Проверьте интернет.";
 "page.read.chapter_subtitle" = "Глава %@";
 
 "settings.pause.block.short.verse" = "стих";

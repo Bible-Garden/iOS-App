@@ -124,6 +124,7 @@ struct PageMultilingualConfigView: View {
                                 section: .language,
                                 title: "settings.bible_language".localized,
                                 value: selectedLanguageLabel(),
+                                isPlaceholder: selectedLanguage.isEmpty,
                                 isLoading: isLanguagesLoading
                             ) {
                                 if isLanguagesLoading {
@@ -152,6 +153,7 @@ struct PageMultilingualConfigView: View {
                                 section: .translation,
                                 title: "settings.translation".localized,
                                 value: selectedTranslationLabel(),
+                                isPlaceholder: selectedTranslation.isEmpty,
                                 isLoading: isTranslationsLoading
                             ) {
                                 if selectedLanguage.isEmpty {
@@ -185,6 +187,7 @@ struct PageMultilingualConfigView: View {
                                 section: .voice,
                                 title: "settings.reader".localized,
                                 value: selectedVoiceLabel(),
+                                isPlaceholder: selectedVoice.isEmpty,
                                 isLoading: false
                             ) {
                                 if selectedTranslation.isEmpty {
@@ -536,6 +539,7 @@ struct PageMultilingualConfigView: View {
         section: SelectionAccordionSection,
         title: String,
         value: String,
+        isPlaceholder: Bool = false,
         isLoading: Bool,
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -554,8 +558,8 @@ struct PageMultilingualConfigView: View {
                             .foregroundColor(.white.opacity(0.7))
                         Text(value)
                             .font(.callout)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
+                            .fontWeight(isPlaceholder ? .regular : .medium)
+                            .foregroundColor(.white.opacity(isPlaceholder ? 0.4 : 1))
                             .lineLimit(1)
                     }
                     Spacer()

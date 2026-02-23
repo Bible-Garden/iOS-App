@@ -11,6 +11,7 @@ struct PageMultilingualReadView: View {
     @State private var stepTextVerses: [Int: [BibleTextualVerseFull]] = [:]
     @State private var stepAudioVerses: [Int: [BibleAcousticalVerseFull]] = [:]
     @State private var stepAudioUrls: [Int: String] = [:]
+    @State private var stepPlayerItems: [Int: AVPlayerItem] = [:]  // one per translation, reused across units
     
     // Navigation
     @State private var prevExcerpt: String = ""
@@ -57,7 +58,9 @@ struct PageMultilingualReadView: View {
     
     // Current verse for highlighting
     @State private var highlightVerseNumber: Int? = nil
-    
+
+    @State private var retryCount: Int = 0
+
     // Reading steps (only read steps from the template)
     private var readSteps: [MultilingualStep] {
         settingsManager.multilingualSteps.filter { $0.type == .read }
@@ -65,6 +68,18 @@ struct PageMultilingualReadView: View {
     
     private var allSteps: [MultilingualStep] {
         settingsManager.multilingualSteps
+    }
+
+    /// True when there's nowhere to go backwards (first step of first unit)
+    private var isAtSectionStart: Bool {
+        let hasPrevReadStep = allSteps.indices.contains(where: { $0 < currentStepIndex && allSteps[$0].type == .read })
+        return !hasPrevReadStep && currentUnitIndex <= 0
+    }
+
+    /// True when there's nowhere to go forwards (last step of last unit)
+    private var isAtSectionEnd: Bool {
+        let hasNextReadStep = allSteps.indices.contains(where: { $0 > currentStepIndex && allSteps[$0].type == .read })
+        return !hasNextReadStep && currentUnitIndex >= unitRanges.count - 1
     }
     
     var body: some View {
@@ -168,12 +183,13 @@ struct PageMultilingualReadView: View {
                         } label: {
                             Image(systemName: "chevron.backward.2")
                                 .font(.system(size: 18))
-                                .foregroundColor(prevExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
+                                .foregroundColor((prevExcerpt.isEmpty || isLoading) ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
                                 .padding(10)
                         }
-                        
+                        .disabled(prevExcerpt.isEmpty || isLoading)
+
                         Spacer()
-                        
+
                         // Next Chapter
                         Button {
                             if !nextExcerpt.isEmpty {
@@ -185,12 +201,13 @@ struct PageMultilingualReadView: View {
                         } label: {
                             Image(systemName: "chevron.forward.2")
                                 .font(.system(size: 18))
-                                .foregroundColor(nextExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
+                                .foregroundColor((nextExcerpt.isEmpty || isLoading) ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
                                 .padding(10)
                         }
+                        .disabled(nextExcerpt.isEmpty || isLoading)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 10) 
+                    .padding(.bottom, 10)
                 }
                 .edgesIgnoringSafeArea(.bottom)
             }
@@ -242,7 +259,6 @@ struct PageMultilingualReadView: View {
             VStack(spacing: 0) {
                 // Reader info row
                 HStack(spacing: 12) {
-                    // Current translation badge (match Classic Reading style)
                     if let currentReadStep = getCurrentReadStep() {
                         HStack(spacing: 4) {
                             Image(systemName: "globe")
@@ -263,7 +279,7 @@ struct PageMultilingualReadView: View {
                             RoundedRectangle(cornerRadius: 5, style: .continuous)
                                 .stroke(Color("localAccentColor").opacity(0.25), lineWidth: 1)
                         }
-                        
+
                         // Reader name
                         VStack(alignment: .leading, spacing: 0) {
                             Text("page.read.reader".localized())
@@ -296,9 +312,15 @@ struct PageMultilingualReadView: View {
                 .padding(.vertical, 10)
 
                 viewChapterMarkToggle()
-                
+
                 // Control buttons row - matching PageReadView style
                 HStack {
+                    let hasAudio = !stepPlayerItems.isEmpty
+                    let buttonsColor = hasAudio ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4)
+                    let prevColor = prevExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor")
+                    let nextColor = nextExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor")
+                    let verseGoColor = (hasAudio && isPlaying) ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4)
+
                     // Previous chapter
                     Button {
                         if !prevExcerpt.isEmpty {
@@ -309,29 +331,32 @@ struct PageMultilingualReadView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.backward.2")
-                            .foregroundColor(prevExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
+                            .foregroundColor(prevColor)
                     }
+                    .disabled(prevExcerpt.isEmpty)
                     Spacer()
-                    
+
                     // Previous Unit (Block)
                     Button {
-                        moveToPreviousUnit()
+                        navigateToPreviousUnit()
                     } label: {
                         Image(systemName: "arrow.up.square")
                             .font(.system(size: 22))
-                            .foregroundColor(currentUnitIndex > 0 ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
+                            .foregroundColor(currentUnitIndex > 0 ? buttonsColor : Color("localAccentColor").opacity(0.4))
                     }
+                    .disabled(!hasAudio || currentUnitIndex <= 0)
                     Spacer()
-                    
+
                     // Previous content (step or unit)
                     Button {
                         moveToPreviousSection()
                     } label: {
                         Image(systemName: "arrow.turn.left.up")
-                            .foregroundColor(currentUnitIndex > 0 || currentStepIndex > 0 ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
+                            .foregroundColor(isAtSectionStart ? Color("localAccentColor").opacity(0.4) : buttonsColor)
                     }
+                    .disabled(!hasAudio || isAtSectionStart)
                     Spacer()
-                    
+
                     // Play/Pause
                     Button {
                         togglePlayPause()
@@ -346,29 +371,32 @@ struct PageMultilingualReadView: View {
                             }
                         }
                         .font(.system(size: 55))
-                        .foregroundColor(Color("localAccentColor"))
+                        .foregroundColor(buttonsColor)
                     }
+                    .disabled(!hasAudio)
                     Spacer()
-                    
+
                     // Next content (step or unit)
                     Button {
                         moveToNextSection()
                     } label: {
                         Image(systemName: "arrow.turn.right.down")
-                            .foregroundColor(currentUnitIndex < unitRanges.count - 1 ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
+                            .foregroundColor(isAtSectionEnd ? Color("localAccentColor").opacity(0.4) : buttonsColor)
                     }
+                    .disabled(!hasAudio || isAtSectionEnd)
                     Spacer()
-                    
+
                     // Next Unit (Block)
                     Button {
-                        moveToNextUnit()
+                        navigateToNextUnit()
                     } label: {
                         Image(systemName: "arrow.down.square")
                             .font(.system(size: 22))
-                            .foregroundColor(currentUnitIndex < unitRanges.count - 1 ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4))
+                            .foregroundColor(currentUnitIndex < unitRanges.count - 1 ? buttonsColor : Color("localAccentColor").opacity(0.4))
                     }
+                    .disabled(!hasAudio || currentUnitIndex >= unitRanges.count - 1)
                     Spacer()
-                    
+
                     // Next chapter
                     Button {
                         if !nextExcerpt.isEmpty {
@@ -379,8 +407,9 @@ struct PageMultilingualReadView: View {
                         }
                     } label: {
                         Image(systemName: "chevron.forward.2")
-                            .foregroundColor(nextExcerpt.isEmpty ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor"))
+                            .foregroundColor(nextColor)
                     }
+                    .disabled(nextExcerpt.isEmpty)
                 }
                 .foregroundColor(Color("localAccentColor"))
                 .padding(.horizontal, globalBasePadding)
@@ -441,23 +470,6 @@ struct PageMultilingualReadView: View {
         180 + 24
     }
     
-    // Get current read step
-    private func getCurrentReadStep() -> MultilingualStep? {
-        if currentStepIndex < allSteps.count {
-            let step = allSteps[currentStepIndex]
-            if step.type == .read {
-                return step
-            }
-            // If on pause, find the previous read step
-            for i in stride(from: currentStepIndex - 1, through: 0, by: -1) {
-                if allSteps[i].type == .read {
-                    return allSteps[i]
-                }
-            }
-        }
-        return readSteps.first
-    }
-
     private var ninetyPercentThresholdVerseCount: Int {
         guard audioVerseCount > 0 else { return 0 }
         return Int(ceil(Double(audioVerseCount) * 0.9))
@@ -534,9 +546,30 @@ struct PageMultilingualReadView: View {
 					.font(.caption2)
 					.foregroundColor(Color("localAccentColor").opacity(0.85))
                 Spacer()
+                // Inline buffering/error indicator
+                if audiopleer.isStalled || audiopleer.isBufferingLong {
+                    HStack(spacing: 4) {
+                        ProgressView()
+                            .tint(Color("Mustard"))
+                            .scaleEffect(0.6)
+                        Text("error.audio.stalled".localized)
+                            .foregroundColor(Color("Mustard"))
+                            .font(.caption2)
+                    }
+                } else if let errorMsg = audiopleer.errorMessage {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(Color("Mustard"))
+                            .font(.caption2)
+                        Text(errorMsg)
+                            .foregroundColor(Color("Mustard"))
+                            .font(.caption2)
+                            .lineLimit(1)
+                    }
+                }
             }
             .padding(.horizontal, globalBasePadding)
-            .frame(height: 24)
+            .frame(minHeight: 24)
         }
         .buttonStyle(.plain)
         .disabled(!canMark)
@@ -566,11 +599,25 @@ struct PageMultilingualReadView: View {
         }
     }
     
+    /// Returns the current (or most recent) read step for display in the audio panel.
+    private func getCurrentReadStep() -> MultilingualStep? {
+        if currentStepIndex < allSteps.count {
+            let step = allSteps[currentStepIndex]
+            if step.type == .read { return step }
+            // Walk backwards to find the last read step before the current position
+            for i in stride(from: currentStepIndex - 1, through: 0, by: -1) {
+                if allSteps[i].type == .read { return allSteps[i] }
+            }
+        }
+        return readSteps.first
+    }
+
     // MARK: Data Loading
     private func loadAllData(force: Bool = false) async {
         // Avoid reloading if data exists (preserves state on return from Settings)
         if !force && !stepTextVerses.isEmpty { return }
         isUpdatingExcerpt = true
+        audiopleer.stop()  // Immediately stop old audio before loading new data
         stopAudioMonitoring()
         isPlaying = false
         invalidateAudioProgressTracking()
@@ -582,6 +629,7 @@ struct PageMultilingualReadView: View {
         stepTextVerses = [:]
         stepAudioVerses = [:]
         stepAudioUrls = [:]
+        stepPlayerItems = [:]
         
         // Load data for each read step
         for (index, step) in readSteps.enumerated() {
@@ -596,6 +644,9 @@ struct PageMultilingualReadView: View {
                 stepTextVerses[index] = textVerses
                 stepAudioVerses[index] = audioVerses
                 stepAudioUrls[index] = audioUrl
+                if let url = URL(string: audioUrl) {
+                    stepPlayerItems[index] = AVPlayerItem(url: url)
+                }
                 
                 // Use first step's data for navigation info
                 if index == 0, let part = part {
@@ -628,8 +679,9 @@ struct PageMultilingualReadView: View {
         // Reset playback state
         currentUnitIndex = 0
         currentStepIndex = 0
+        highlightVerseNumber = nil
         isPlaying = false
-        
+
         isLoading = false
         
         // Setup audio completion observer
@@ -762,9 +814,11 @@ struct PageMultilingualReadView: View {
             return
         }
         
+        retryCount = 0
+
         let step = allSteps[currentStepIndex]
         print("[MultiRead] Playing step \(currentStepIndex): \(step.type == .read ? step.translationName : "pause")")
-        
+
         if step.type == .pause {
             if skipPause {
                 print("[MultiRead] Skipping pause on manual resume")
@@ -791,7 +845,7 @@ struct PageMultilingualReadView: View {
         } else {
             // Read step - play audio
             isAutopausing = false
-            
+
             // Find which read step index this is
             guard let readIndex = readSteps.firstIndex(where: { $0.id == step.id }) else {
                 print("[MultiRead] ERROR: Could not find read step index")
@@ -819,53 +873,41 @@ struct PageMultilingualReadView: View {
                 moveToNextStep()
                 return
             }
-            
+
             let unitRange = unitRanges[currentUnitIndex]
-            
+
             // Make sure indices are valid
             let startIdx = min(unitRange.start, audioVerses.count - 1)
             let endIdx = min(unitRange.end, audioVerses.count - 1)
-            
+
             guard startIdx >= 0 && startIdx <= endIdx else {
                 print("[MultiRead] ERROR: Invalid verse range \(startIdx)-\(endIdx)")
                 moveToNextStep()
                 return
             }
-            
+
             let unitAudioVerses = Array(audioVerses[startIdx...endIdx])
-            
+
             guard !unitAudioVerses.isEmpty else {
                 print("[MultiRead] ERROR: No unit audio verses")
                 moveToNextStep()
                 return
             }
-            
-            // Set up audio player
-            let playerItem = AVPlayerItem(url: url)
+
+            // Reuse pre-created player item for this translation (loaded once, seeked for each unit)
+            let playerItem = stepPlayerItems[readIndex] ?? AVPlayerItem(url: url)
             let from = unitAudioVerses.first!.begin
             let to = unitAudioVerses.last!.end
             let trackingSessionID = UUID()
             verseTrackingSessionID = trackingSessionID
             currentAudioVerseNumber = -1
-            
+
             print("[MultiRead] Setting up audio from \(from) to \(to) with \(unitAudioVerses.count) verses")
-            
-            audiopleer.setItem(
-                playerItem: playerItem,
-                periodFrom: from,
-                periodTo: to,
-                audioVerses: unitAudioVerses,
-                itemTitle: excerptTitle,
-                itemSubtitle: step.translationName
-            )
-            
-            // Set speed for this step
-            audiopleer.setSpeed(speed: Float(step.playbackSpeed))
-            
+
+            // Set callbacks BEFORE setItem — seekToSegment() may trigger playback immediately
             audiopleer.onStartVerse = { verseIdx in
                 guard self.verseTrackingSessionID == trackingSessionID else { return }
                 if verseIdx >= 0 && verseIdx < unitAudioVerses.count {
-                    // Encode step index into highlight ID: stepIdx * 10000 + verseNumber
                     let verseNumber = unitAudioVerses[verseIdx].number
                     self.highlightVerseNumber = self.currentStepIndex * 10000 + verseNumber
                     self.currentAudioVerseNumber = verseNumber
@@ -875,9 +917,19 @@ struct PageMultilingualReadView: View {
                 guard self.verseTrackingSessionID == trackingSessionID else { return }
                 self.recordListenedVerse(self.currentAudioVerseNumber)
             }
-            
 
-            
+            audiopleer.setItem(
+                playerItem: playerItem,
+                periodFrom: from,
+                periodTo: to,
+                audioVerses: unitAudioVerses,
+                itemTitle: excerptTitle,
+                itemSubtitle: step.translationName
+            )
+
+            // Set speed for this step
+            audiopleer.setSpeed(speed: Float(step.playbackSpeed))
+
             // Start monitoring for this new session
             startAudioMonitoring()
         }
@@ -900,47 +952,111 @@ struct PageMultilingualReadView: View {
         }
     }
     
-    // Manual navigation to next content logic
+    // Manual navigation to next content (no audio start — just highlight for reading)
     private func moveToNextSection() {
-        // 1. Stop monitoring immediately to prevent jumping
+        let wasPlaying = isPlaying
         stopAudioMonitoring()
         isAutopausing = false
-        isPlaying = false
-        
+        if !wasPlaying { isPlaying = false }
+
         // Find next read step in current unit
         if let nextIndex = allSteps.indices.first(where: { $0 > currentStepIndex && allSteps[$0].type == .read }) {
-             currentStepIndex = nextIndex
-             playCurrentStep()
+            currentStepIndex = nextIndex
+        } else if currentUnitIndex < unitRanges.count - 1 {
+            currentUnitIndex += 1
+            currentStepIndex = 0
+        }
+
+        if wasPlaying {
+            playCurrentStep(skipPause: true)
         } else {
-             moveToNextUnit()
+            highlightCurrentPosition()
         }
     }
-    
-    // Manual navigation to previous content logic
+
     private func moveToPreviousSection() {
+        let wasPlaying = isPlaying
         stopAudioMonitoring()
         isAutopausing = false
-        isPlaying = false
-        
+        if !wasPlaying { isPlaying = false }
+
         // Find previous read step in current unit
         if let prevIndex = allSteps.indices.last(where: { $0 < currentStepIndex && allSteps[$0].type == .read }) {
             currentStepIndex = prevIndex
-            playCurrentStep()
-        } else {
-            // Go to previous unit's LAST read step
-            if currentUnitIndex > 0 {
-                 currentUnitIndex -= 1
-                 // Find last read step index in the pattern
-                 if let lastReadIndex = allSteps.indices.last(where: { allSteps[$0].type == .read }) {
-                     currentStepIndex = lastReadIndex
-                 } else {
-                     currentStepIndex = 0 // Fallback
-                 }
-                 playCurrentStep()
+        } else if currentUnitIndex > 0 {
+            currentUnitIndex -= 1
+            if let lastReadIndex = allSteps.indices.last(where: { allSteps[$0].type == .read }) {
+                currentStepIndex = lastReadIndex
+            } else {
+                currentStepIndex = 0
             }
         }
+
+        if wasPlaying {
+            playCurrentStep(skipPause: true)
+        } else {
+            highlightCurrentPosition()
+        }
     }
-    
+
+    /// Sets highlightVerseNumber to the first verse of the current unit at the current step, without starting audio.
+    private func highlightCurrentPosition() {
+        guard currentUnitIndex < unitRanges.count else { return }
+
+        let stepIdx: Int
+        if currentStepIndex < allSteps.count && allSteps[currentStepIndex].type == .read {
+            stepIdx = currentStepIndex
+        } else {
+            stepIdx = allSteps.indices.first(where: { allSteps[$0].type == .read }) ?? 0
+        }
+
+        guard stepIdx < allSteps.count,
+              let readIndex = readSteps.firstIndex(where: { $0.id == allSteps[stepIdx].id }),
+              let verses = stepTextVerses[readIndex] else { return }
+
+        let unitRange = unitRanges[currentUnitIndex]
+        let startIdx = min(unitRange.start, verses.count - 1)
+        guard startIdx >= 0 else { return }
+
+        highlightVerseNumber = stepIdx * 10000 + verses[startIdx].number
+    }
+
+    /// Navigate to previous unit; resume playback only if audio was already playing.
+    private func navigateToPreviousUnit() {
+        guard currentUnitIndex > 0 else { return }
+        let wasPlaying = isPlaying
+        stopAudioMonitoring()
+        isAutopausing = false
+        if !wasPlaying { isPlaying = false }
+
+        currentUnitIndex -= 1
+        currentStepIndex = 0
+
+        if wasPlaying {
+            playCurrentStep(skipPause: true)
+        } else {
+            highlightCurrentPosition()
+        }
+    }
+
+    /// Navigate to next unit; resume playback only if audio was already playing.
+    private func navigateToNextUnit() {
+        guard currentUnitIndex < unitRanges.count - 1 else { return }
+        let wasPlaying = isPlaying
+        stopAudioMonitoring()
+        isAutopausing = false
+        if !wasPlaying { isPlaying = false }
+
+        currentUnitIndex += 1
+        currentStepIndex = 0
+
+        if wasPlaying {
+            playCurrentStep(skipPause: true)
+        } else {
+            highlightCurrentPosition()
+        }
+    }
+
     private func moveToPreviousUnit() {
         guard currentUnitIndex > 0 else { return }
         stopAudioMonitoring()
@@ -997,7 +1113,7 @@ struct PageMultilingualReadView: View {
                 print("[MultiRead] Audio state changed to: \(newState)")
 
                 self.updateTextReadingTimerForAudioState(newState)
-                
+
                 // When audio is ready to play, start it
                 if newState == .waitingForPlay {
                     print("[MultiRead] State is waitingForPlay")
@@ -1010,15 +1126,33 @@ struct PageMultilingualReadView: View {
                     }
                     self.isPlaying = true
                 }
-                
+
+                // Handle audio loading error — auto-retry once, then skip
+                if newState == .error {
+                    if self.retryCount < 1 {
+                        self.retryCount += 1
+                        print("[MultiRead] Audio error, retrying in 3s (attempt \(self.retryCount))")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            guard self.playbackSessionID == sessionID else { return }
+                            self.audiopleer.retry()
+                        }
+                    } else {
+                        print("[MultiRead] Audio error after retry: \(self.audiopleer.errorMessage ?? "unknown"), skipping step")
+                        self.retryCount = 0
+                        self.isPlaying = false
+                        self.moveToNextStep()
+                    }
+                    return
+                }
+
                 // Move to next step when audio finishes naturally (logic end or file end)
                 if newState == .finished || newState == .segmentFinished {
-                    // SAFETY WINDOW: Ignore completion events immediately after start (1.0s)
-                    if Date().timeIntervalSince(sessionStartTime) < 1.0 {
+                    // SAFETY WINDOW: Ignore completion events immediately after start (0.1s)
+                    if Date().timeIntervalSince(sessionStartTime) < 0.1 {
                         print("[MultiRead] Ignoring early completion event (safety window)")
                         return
                     }
-                    
+
                     // Only advance if we are supposed to be playing
                     if self.isPlaying {
                         // PlayerModel does not emit `onEndVerse` for the last verse; count it here.
@@ -1099,7 +1233,7 @@ struct PageMultilingualReadView: View {
         switch state {
         case .playing, .buffering, .autopausing, .waitingForPause, .pausing:
             return true
-        case .waitingForSelection, .waitingForPlay, .finished, .segmentFinished:
+        case .waitingForSelection, .waitingForPlay, .finished, .segmentFinished, .error:
             return false
         }
     }

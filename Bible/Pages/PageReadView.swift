@@ -53,6 +53,7 @@ struct PageReadView: View {
     @State var oldFontIncreasePercent: Double = 0
 
     @State var skipOnePause: Bool = false
+    @State private var activeVerseIndex: Int = -1 // current position in textVerses (not reset by HTMLTextView)
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -274,6 +275,10 @@ struct PageReadView: View {
         invalidateTextReadingTracking()
         defer { isUpdatingExcerpt = false }
 
+        // Stop current audio immediately before loading new chapter
+        audiopleer.stop()
+        self.hasAudio = false
+
         do {
                 self.isTextLoading = true
                 self.errorDescription = ""
@@ -298,6 +303,7 @@ struct PageReadView: View {
             settingsManager.currentChapterId = textVerses[0].chapterDigitCode
             
             self.currentVerseNumber = -1
+            self.activeVerseIndex = -1
             if (part != nil) {
                 self.prevExcerpt = part!.prev_excerpt
                 self.nextExcerpt = part!.next_excerpt
@@ -393,11 +399,13 @@ struct PageReadView: View {
     // MARK: Verse change handlers
     func onStartVerse(_ cur: Int) {
         currentAudioVerseIndex = cur
+        activeVerseIndex = cur
         if skipOnePause {
             skipOnePause = false
         }
         else if cur < 0 {
             currentAudioVerseIndex = -1
+            activeVerseIndex = -1
             self.currentVerseNumber = 0
             return
         }
@@ -564,7 +572,7 @@ struct PageReadView: View {
         switch state {
         case .playing, .buffering, .autopausing, .waitingForPause, .pausing:
             return true
-        case .waitingForSelection, .waitingForPlay, .finished, .segmentFinished:
+        case .waitingForSelection, .waitingForPlay, .finished, .segmentFinished, .error:
             return false
         }
     }
@@ -697,8 +705,8 @@ struct PageReadView: View {
 
                 viewChapterMarkToggle()
                 
-                // Warning when audio is missing
-                if !hasAudio && hasText && self.errorDescription != "" {
+                // Warning when audio is missing (no audio file at all)
+                if !hasAudio && hasText && !self.errorDescription.isEmpty {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(Color("Mustard"))
@@ -869,6 +877,14 @@ struct PageReadView: View {
         }
     }
 
+    private var isAtFirstVerse: Bool {
+        activeVerseIndex <= 0
+    }
+
+    private var isAtLastVerse: Bool {
+        !textVerses.isEmpty && activeVerseIndex >= textVerses.count - 1
+    }
+
     private var audioPanelHeight: CGFloat {
         let baseHeight: CGFloat = (!hasAudio && hasText ? 260 : 220)
         return baseHeight + chapterMarkRowHeight
@@ -951,8 +967,29 @@ struct PageReadView: View {
                     .font(.caption2)
                     .foregroundColor(Color("localAccentColor").opacity(0.85))
                 Spacer()
+                // Inline buffering/error indicator
+                if audiopleer.isStalled || (hasAudio && audiopleer.isBufferingLong) {
+                    HStack(spacing: 4) {
+                        ProgressView()
+                            .tint(Color("Mustard"))
+                            .scaleEffect(0.6)
+                        Text("error.audio.stalled".localized)
+                            .foregroundColor(Color("Mustard"))
+                            .font(.caption2)
+                    }
+                } else if audiopleer.errorMessage != nil {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(Color("Mustard"))
+                            .font(.caption2)
+                        Text(audiopleer.errorMessage!)
+                            .foregroundColor(Color("Mustard"))
+                            .font(.caption2)
+                            .lineLimit(1)
+                    }
+                }
             }
-            .frame(height: chapterMarkRowHeight)
+            .frame(minHeight: chapterMarkRowHeight)
         }
         .buttonStyle(.plain)
         .disabled(!canMark)
@@ -1095,6 +1132,7 @@ struct PageReadView: View {
         case .autopausing: return "autopausing"
         case .finished: return "finished"
         case .segmentFinished: return "segmentFinished"
+        case .error: return "error"
         }
     }
     #endif
@@ -1108,7 +1146,9 @@ struct PageReadView: View {
     // MARK: Panel – AudioButtons
     @ViewBuilder fileprivate func viewAudioButtons(proxy: ScrollViewProxy) -> some View {
 
-        let buttonsColor = (!hasAudio || audiopleer.state == .buffering) ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor")
+        let isDisabledState = !hasAudio || audiopleer.state == .buffering
+        let buttonsColor = isDisabledState ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor")
+        let retryColor = audiopleer.state == .error ? Color("localAccentColor") : buttonsColor
         let prevColor =  prevExcerpt == "" ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor")
         let nextColor =  nextExcerpt == "" ? Color("localAccentColor").opacity(0.4) : Color("localAccentColor")
         let verseGoColor = (hasAudio && audiopleer.state == .playing) ? Color("localAccentColor") : Color("localAccentColor").opacity(0.4)
@@ -1144,18 +1184,29 @@ struct PageReadView: View {
 
             // Previous verse
             Button {
-                self.skipOnePause = true
-                audiopleer.previousVerse()
+                if audiopleer.state == .playing || audiopleer.state == .pausing || audiopleer.state == .autopausing || audiopleer.state == .buffering {
+                    self.skipOnePause = true
+                    audiopleer.previousVerse()
+                } else if activeVerseIndex > 0 {
+                    activeVerseIndex -= 1
+                    currentVerseNumber = textVerses[activeVerseIndex].number
+                } else if activeVerseIndex < 0 && !textVerses.isEmpty {
+                    activeVerseIndex = 0
+                    currentVerseNumber = textVerses[0].number
+                }
             } label: {
                 Image(systemName: "arrow.turn.left.up")
-                    .foregroundColor(verseGoColor)
+                    .foregroundColor(isAtFirstVerse ? Color("localAccentColor").opacity(0.4) : buttonsColor)
             }
             .accessibilityIdentifier("read-prev-verse")
-            .disabled(!hasAudio)
+            .disabled(!hasAudio || isAtFirstVerse)
             Spacer()
 
             // Play/Pause
             Button {
+                if activeVerseIndex > 0 && audiopleer.state != .playing {
+                    audiopleer.seekToVerseIndex(activeVerseIndex)
+                }
                 audiopleer.doPlayOrPause()
             } label: {
 
@@ -1165,12 +1216,14 @@ struct PageReadView: View {
                         Image(systemName: "pause.circle.fill")
                     case .autopausing:
                         Image(systemName: "hourglass.circle.fill")
+                    case .error:
+                        Image(systemName: "arrow.clockwise.circle.fill")
                     default:
                         Image(systemName: "play.circle.fill")
                     }
                 }
                     .font(.system(size: 55))
-                    .foregroundColor(buttonsColor)
+                    .foregroundColor(retryColor)
             }
             .accessibilityIdentifier("read-play-pause")
             .disabled(!hasAudio)
@@ -1178,14 +1231,22 @@ struct PageReadView: View {
 
             // Next verse
             Button {
-                self.skipOnePause = true
-                audiopleer.nextVerse()
+                if audiopleer.state == .playing || audiopleer.state == .pausing || audiopleer.state == .autopausing || audiopleer.state == .buffering {
+                    self.skipOnePause = true
+                    audiopleer.nextVerse()
+                } else if activeVerseIndex + 1 < textVerses.count {
+                    activeVerseIndex += 1
+                    currentVerseNumber = textVerses[activeVerseIndex].number
+                } else if activeVerseIndex < 0 && !textVerses.isEmpty {
+                    activeVerseIndex = 0
+                    currentVerseNumber = textVerses[0].number
+                }
             } label: {
                 Image(systemName: "arrow.turn.right.down")
-                    .foregroundColor(verseGoColor)
+                    .foregroundColor(isAtLastVerse ? Color("localAccentColor").opacity(0.4) : buttonsColor)
             }
             .accessibilityIdentifier("read-next-verse")
-            .disabled(!hasAudio)
+            .disabled(!hasAudio || isAtLastVerse)
             Spacer()
 
             // Speed

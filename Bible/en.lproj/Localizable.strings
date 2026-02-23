@@ -99,7 +99,7 @@
 "settings.add_choice" = "Add";
 "settings.cancel_choice" = "Cancel";
 "settings.warning" = "Warning!";
-"settings.select_language" = "Select Bible language";
+"settings.select_language" = "Select language";
 "settings.select_translation" = "Select translation";
 "settings.select_reader" = "Select who reads";
 
@@ -133,6 +133,8 @@
 "error.loading.example" = "Error loading example";
 "error.loading.audio" = "Failed to load audio";
 "error.audio.unavailable" = "Audio unavailable for this voice";
+"error.audio.stalled" = "Loading audio...";
+"error.audio.timeout" = "Connection timeout. Check your internet.";
 "page.read.chapter_subtitle" = "Chapter %@";
 
 "settings.pause.block.short.verse" = "verse";

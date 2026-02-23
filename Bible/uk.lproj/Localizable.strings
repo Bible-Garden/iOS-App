@@ -99,7 +99,7 @@
 "settings.add_choice" = "Додати";
 "settings.cancel_choice" = "Скасувати";
 "settings.warning" = "Увага!";
-"settings.select_language" = "Виберіть мову Біблії";
+"settings.select_language" = "Виберіть мову";
 "settings.select_translation" = "Виберіть переклад";
 "settings.select_reader" = "Виберіть хто читає";
 
@@ -133,6 +133,8 @@
 "error.loading.example" = "Помилка завантаження прикладу";
 "error.loading.audio" = "Не вдалося завантажити аудіо";
 "error.audio.unavailable" = "Аудіо недоступне для цього голосу";
+"error.audio.stalled" = "Завантаження аудіо...";
+"error.audio.timeout" = "Таймаут підключення. Перевірте інтернет.";
 "page.read.chapter_subtitle" = "Розділ %@";
 
 "settings.pause.block.short.verse" = "вірш";
