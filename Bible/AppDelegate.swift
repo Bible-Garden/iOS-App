@@ -34,6 +34,63 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             if let pauseBlock = TestingEnvironment.pauseBlockOverride {
                 UserDefaults.standard.set(pauseBlock, forKey: "pauseBlock")
             }
+            // Override multilingual read unit if specified
+            if let unit = TestingEnvironment.multiUnitOverride {
+                UserDefaults.standard.set(unit, forKey: "multilingualReadUnit")
+            }
+            // Setup multilingual template if specified
+            if let templateName = TestingEnvironment.multiTemplateOverride {
+                let lang = Locale.current.language.languageCode?.identifier ?? "en"
+                var steps: [MultilingualStep] = []
+
+                var primaryStep = MultilingualStep(type: .read)
+                switch lang {
+                case "ru":
+                    primaryStep.languageCode = "ru"
+                    primaryStep.translationCode = 1
+                    primaryStep.translationName = "SYNO"
+                    primaryStep.voiceCode = 1
+                    primaryStep.voiceName = "Alexander Bondarenko"
+                case "uk":
+                    primaryStep.languageCode = "uk"
+                    primaryStep.translationCode = 20
+                    primaryStep.translationName = "UBH"
+                    primaryStep.voiceCode = 130
+                    primaryStep.voiceName = "Igor Kozlov"
+                default:
+                    primaryStep.languageCode = "en"
+                    primaryStep.translationCode = 16
+                    primaryStep.translationName = "BSB"
+                    primaryStep.voiceCode = 151
+                    primaryStep.voiceName = "Bob Souer"
+                }
+
+                if templateName == "default" {
+                    steps = [primaryStep]
+                } else if templateName == "two-langs" {
+                    let pauseStep = MultilingualStep(type: .pause, pauseDuration: 2.0)
+                    var secondStep = MultilingualStep(type: .read)
+                    if lang != "en" {
+                        secondStep.languageCode = "en"
+                        secondStep.translationCode = 16
+                        secondStep.translationName = "BSB"
+                        secondStep.voiceCode = 151
+                        secondStep.voiceName = "Bob Souer"
+                    } else {
+                        secondStep.languageCode = "ru"
+                        secondStep.translationCode = 1
+                        secondStep.translationName = "SYNO"
+                        secondStep.voiceCode = 1
+                        secondStep.voiceName = "Alexander Bondarenko"
+                    }
+                    steps = [primaryStep, pauseStep, secondStep]
+                }
+
+                if !steps.isEmpty, let data = try? JSONEncoder().encode(steps) {
+                    UserDefaults.standard.set(data, forKey: "multilingualStepsData")
+                    UserDefaults.standard.set(true, forKey: "isMultilingualReadingActive")
+                }
+            }
         }
 
         // Preload WKWebView ahead of time

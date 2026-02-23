@@ -73,4 +73,44 @@ extension XCUIApplication {
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
+
+    // MARK: - Multilingual Reading Helpers
+
+    func navigateToMultiSetupPage() {
+        navigateViaMenu(to: "menu-multilingual")
+        let setupPage = otherElements["page-multi-setup"]
+        XCTAssertTrue(waitForElement(setupPage, timeout: 5), "Multi setup page did not appear")
+    }
+
+    func navigateToMultiReadingPage() {
+        navigateViaMenu(to: "menu-multilingual")
+        let readingPage = otherElements["page-multi-reading"]
+        XCTAssertTrue(waitForElement(readingPage, timeout: 10), "Multi reading page did not appear")
+    }
+
+    func waitForMultiTextContent(timeout: TimeInterval = 15) -> XCUIElement? {
+        let webView = webViews.firstMatch
+        if webView.waitForExistence(timeout: timeout) { return webView }
+        let other = otherElements["multi-text-content"]
+        if other.waitForExistence(timeout: 2) { return other }
+        return nil
+    }
+
+    func waitForMultiPlaybackState(_ state: String, timeout: TimeInterval = 10) -> Bool {
+        let stateLabel = staticTexts["multi-playback-state"]
+        guard stateLabel.waitForExistence(timeout: 3) else { return false }
+        return waitForLabel(element: stateLabel, toBe: state, timeout: timeout)
+    }
+
+    func multiCurrentUnit() -> String? {
+        let label = staticTexts["multi-current-unit"]
+        guard label.waitForExistence(timeout: 3) else { return nil }
+        return label.label
+    }
+
+    func multiCurrentStep() -> String? {
+        let label = staticTexts["multi-current-step"]
+        guard label.waitForExistence(timeout: 3) else { return nil }
+        return label.label
+    }
 }

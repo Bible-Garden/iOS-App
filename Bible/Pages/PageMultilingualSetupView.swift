@@ -65,6 +65,7 @@ struct PageMultilingualSetupView: View {
                             .font(.title2)
                             .foregroundColor(.white)
                     }
+                    .accessibilityIdentifier("multi-templates-button")
                 }
                 .padding(.horizontal, globalBasePadding)
                 .padding(.top, 10)
@@ -95,6 +96,7 @@ struct PageMultilingualSetupView: View {
                         .cornerRadius(8)
                     }
                 }
+                .accessibilityIdentifier("multi-read-unit-picker")
                 .padding(.horizontal, globalBasePadding)
                 .padding(.bottom, 20) // Extra spacing
 
@@ -113,6 +115,7 @@ struct PageMultilingualSetupView: View {
                     .padding(.horizontal, 12)
                     .background(Color.red.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityIdentifier("multi-error-message")
                     .padding(.horizontal, globalBasePadding)
                     .padding(.bottom, 8)
                 }
@@ -157,6 +160,7 @@ struct PageMultilingualSetupView: View {
                         .background(Color("DarkGreen").brightness(0.05).cornerRadius(10))
                         .overlay(HintOverlay(isActive: $showReadHint, color: Color("Mustard")))
                     }
+                    .accessibilityIdentifier("multi-add-read-step")
                     
                     // Add Pause Step
                     Button {
@@ -177,6 +181,7 @@ struct PageMultilingualSetupView: View {
                         .background(Color("DarkGreen").brightness(0.05).cornerRadius(10))
                         .overlay(HintOverlay(isActive: $showPauseHint, color: Color("Mustard")))
                     }
+                    .accessibilityIdentifier("multi-add-pause-step")
                 }
                 .padding(.horizontal, globalBasePadding)
                 .padding(.vertical, 10)
@@ -214,18 +219,18 @@ struct PageMultilingualSetupView: View {
                     Text("multilingual.save_alert.title".localized)
                         .font(.headline)
                         .foregroundColor(.white)
-                    
+
                     Text("multilingual.save_alert.message".localized)
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
-                    
+
                     TextField("multilingual.save_alert.placeholder".localized, text: $templateName)
                         .padding(10)
                         .background(Color.white)
                         .cornerRadius(8)
                         .foregroundColor(.black)
-                    
+
                     HStack(spacing: 12) {
                         Button {
                             showSaveAlert = false
@@ -239,7 +244,8 @@ struct PageMultilingualSetupView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
                         }
-                        
+                        .accessibilityIdentifier("multi-save-alert-skip")
+
                         Button {
                             saveNewTemplate()
                             showSaveAlert = false
@@ -254,9 +260,11 @@ struct PageMultilingualSetupView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
                         }
+                        .accessibilityIdentifier("multi-save-alert-save")
                         .disabled(templateName.isEmpty)
                     }
                 }
+                .accessibilityIdentifier("multi-save-alert")
                 .padding(25)
                 .background(Color("DarkGreen").brightness(0.1))
                 .cornerRadius(15)
@@ -405,9 +413,10 @@ struct PageMultilingualSetupView: View {
                             .frame(width: 30, height: 30)
                             .contentShape(Rectangle())
                     }
-                    
+                    .accessibilityIdentifier("multi-pause-minus-\(index)")
+
                     Divider().frame(height: 20).background(Color.white.opacity(0.3))
-                    
+
                     Button {
                         settingsManager.multilingualSteps[index].pauseDuration += 1
                     } label: {
@@ -415,6 +424,7 @@ struct PageMultilingualSetupView: View {
                             .frame(width: 30, height: 30)
                             .contentShape(Rectangle())
                     }
+                    .accessibilityIdentifier("multi-pause-plus-\(index)")
                 }
                 .background(Color.white.opacity(0.1))
                 .cornerRadius(5)
@@ -433,6 +443,7 @@ struct PageMultilingualSetupView: View {
                 Image(systemName: "xmark")
                     .foregroundColor(.red.opacity(0.7))
             }
+            .accessibilityIdentifier("multi-step-delete-\(index)")
             .buttonStyle(PlainButtonStyle())
         }
         .padding()
@@ -442,6 +453,7 @@ struct PageMultilingualSetupView: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
+        .accessibilityIdentifier("multi-step-row-\(index)")
         .contentShape(Rectangle())
         .onTapGesture {
             if step.type == .read {

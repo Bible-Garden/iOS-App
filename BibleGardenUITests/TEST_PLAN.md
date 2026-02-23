@@ -8,7 +8,7 @@
 | `MenuTests.swift` | Menu navigation | ✅ Exists (6 tests) |
 | `Helpers/XCUIApplication+Helpers.swift` | Shared helpers | ✅ Exists |
 | `ClassicReadingTests.swift` | Classic reading, audio, settings, pauses | ✅ 40 tests, 7 classes — all pass |
-| `MultiReadingTests.swift` | Multilingual setup + reading | 📝 Planned (49 тестов, 8 классов) |
+| `MultiReadingTests.swift` | Multilingual setup + reading | ✅ 49 tests, 10 classes |
 | `MainTests.swift` | Main screen cards | 📝 Planned |
 | `ChapterSelectTests.swift` | OT/NT filter, book/chapter pick | 📝 Planned |
 | `ProgressTests.swift` | Progress screen, stats | 📝 Planned |
@@ -251,22 +251,22 @@ class ClassicReadingPauseTests: XCTestCase { ... }
 
 Тесты требуют работающий API (bibleapi.space) и сеть. Используют ту же инфраструктуру launch arguments что и ClassicReadingTests.
 
-### Prerequisite: реализация в приложении 🔧
+### Prerequisite: реализация в приложении ✅
 
 | Задача | Файл | Статус |
 |--------|------|--------|
-| Accessibility identifiers для setup view | `PageMultilingualSetupView.swift` | 🔧 Нужно добавить |
-| Accessibility identifiers для reading view | `PageMultilingualReadView.swift` | 🔧 Нужно добавить |
-| Debug playback state label | `PageMultilingualReadView.swift` | 🔧 Нужно добавить `multi-playback-state` |
-| Debug unit/step labels | `PageMultilingualReadView.swift` | 🔧 Нужно добавить `multi-current-unit`, `multi-current-step` (DEBUG-only `.accessibilityLabel`) для детерминированных проверок навигации |
-| Launch args: `--multi-template` | `AppDelegate.swift` | 🔧 Быстрый вход в мультичтение с предустановленным шаблоном |
-| Launch args: `--multi-unit` | `AppDelegate.swift` | 🔧 Переопределение режима чтения (verse/paragraph/fragment/chapter) |
-| Launch args: `--force-load-error` в мультичтении | `PageMultilingualReadView.swift` | 🔧 Сейчас обрабатывается только в PageReadView — нужно добавить аналогичную обработку |
-| Launch args: `--force-no-audio` в мультичтении | `PageMultilingualReadView.swift` | 🔧 Сейчас обрабатывается только в PageReadView — нужно добавить аналогичную обработку |
-| Launch args: `--reading-progress-seconds` в мультичтении | `PageMultilingualReadView.swift` | 🔧 Сейчас обрабатывается только в PageReadView — нужно добавить аналогичную обработку |
-| Save-alert accessibility identifiers | `PageMultilingualSetupView.swift` | 🔧 Нужно добавить id для кнопок диалога сохранения шаблона |
+| Accessibility identifiers для setup view | `PageMultilingualSetupView.swift` | ✅ Добавлено |
+| Accessibility identifiers для reading view | `PageMultilingualReadView.swift` | ✅ Добавлено |
+| Debug playback state label | `PageMultilingualReadView.swift` | ✅ `multi-playback-state` |
+| Debug unit/step labels | `PageMultilingualReadView.swift` | ✅ `multi-current-unit`, `multi-current-step` (DEBUG-only) |
+| Launch args: `--multi-template` | `AppDelegate.swift`, `advGlobals.swift` | ✅ Реализовано |
+| Launch args: `--multi-unit` | `AppDelegate.swift`, `advGlobals.swift` | ✅ Реализовано |
+| Launch args: `--force-load-error` в мультичтении | `PageMultilingualReadView.swift` | ✅ Добавлена обработка |
+| Launch args: `--force-no-audio` в мультичтении | `PageMultilingualReadView.swift` | ✅ Добавлена обработка |
+| Launch args: `--reading-progress-seconds` в мультичтении | `PageMultilingualReadView.swift` | ✅ Добавлена обработка |
+| Save-alert accessibility identifiers | `PageMultilingualSetupView.swift` | ✅ Добавлено |
 
-### Accessibility identifiers (нужно добавить) 🔧
+### Accessibility identifiers ✅
 
 #### PageMultilingualSetupView.swift
 - `page-multi-setup` — фон страницы ✅ (уже есть)
@@ -488,7 +488,7 @@ class MultiReadingBackgroundTests: XCTestCase { ... }
 
 ---
 
-### Helpers (дополнения к XCUIApplication+Helpers.swift) 🔧
+### Helpers (дополнения к XCUIApplication+Helpers.swift) ✅
 
 ```swift
 extension XCUIApplication {
