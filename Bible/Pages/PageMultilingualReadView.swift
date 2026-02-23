@@ -69,6 +69,18 @@ struct PageMultilingualReadView: View {
     private var allSteps: [MultilingualStep] {
         settingsManager.multilingualSteps
     }
+
+    /// True when there's nowhere to go backwards (first step of first unit)
+    private var isAtSectionStart: Bool {
+        let hasPrevReadStep = allSteps.indices.contains(where: { $0 < currentStepIndex && allSteps[$0].type == .read })
+        return !hasPrevReadStep && currentUnitIndex <= 0
+    }
+
+    /// True when there's nowhere to go forwards (last step of last unit)
+    private var isAtSectionEnd: Bool {
+        let hasNextReadStep = allSteps.indices.contains(where: { $0 > currentStepIndex && allSteps[$0].type == .read })
+        return !hasNextReadStep && currentUnitIndex >= unitRanges.count - 1
+    }
     
     var body: some View {
         ZStack {
@@ -326,7 +338,7 @@ struct PageMultilingualReadView: View {
 
                     // Previous Unit (Block)
                     Button {
-                        moveToPreviousUnit()
+                        navigateToPreviousUnit()
                     } label: {
                         Image(systemName: "arrow.up.square")
                             .font(.system(size: 22))
@@ -340,9 +352,9 @@ struct PageMultilingualReadView: View {
                         moveToPreviousSection()
                     } label: {
                         Image(systemName: "arrow.turn.left.up")
-                            .foregroundColor(verseGoColor)
+                            .foregroundColor(isAtSectionStart ? Color("localAccentColor").opacity(0.4) : buttonsColor)
                     }
-                    .disabled(!hasAudio)
+                    .disabled(!hasAudio || isAtSectionStart)
                     Spacer()
 
                     // Play/Pause
@@ -369,14 +381,14 @@ struct PageMultilingualReadView: View {
                         moveToNextSection()
                     } label: {
                         Image(systemName: "arrow.turn.right.down")
-                            .foregroundColor(verseGoColor)
+                            .foregroundColor(isAtSectionEnd ? Color("localAccentColor").opacity(0.4) : buttonsColor)
                     }
-                    .disabled(!hasAudio)
+                    .disabled(!hasAudio || isAtSectionEnd)
                     Spacer()
 
                     // Next Unit (Block)
                     Button {
-                        moveToNextUnit()
+                        navigateToNextUnit()
                     } label: {
                         Image(systemName: "arrow.down.square")
                             .font(.system(size: 22))
@@ -940,47 +952,111 @@ struct PageMultilingualReadView: View {
         }
     }
     
-    // Manual navigation to next content logic
+    // Manual navigation to next content (no audio start — just highlight for reading)
     private func moveToNextSection() {
-        // 1. Stop monitoring immediately to prevent jumping
+        let wasPlaying = isPlaying
         stopAudioMonitoring()
         isAutopausing = false
         isPlaying = false
-        
+
         // Find next read step in current unit
         if let nextIndex = allSteps.indices.first(where: { $0 > currentStepIndex && allSteps[$0].type == .read }) {
-             currentStepIndex = nextIndex
-             playCurrentStep()
+            currentStepIndex = nextIndex
+        } else if currentUnitIndex < unitRanges.count - 1 {
+            currentUnitIndex += 1
+            currentStepIndex = 0
+        }
+
+        if wasPlaying {
+            playCurrentStep(skipPause: true)
         } else {
-             moveToNextUnit()
+            highlightCurrentPosition()
         }
     }
-    
-    // Manual navigation to previous content logic
+
     private func moveToPreviousSection() {
+        let wasPlaying = isPlaying
         stopAudioMonitoring()
         isAutopausing = false
         isPlaying = false
-        
+
         // Find previous read step in current unit
         if let prevIndex = allSteps.indices.last(where: { $0 < currentStepIndex && allSteps[$0].type == .read }) {
             currentStepIndex = prevIndex
-            playCurrentStep()
-        } else {
-            // Go to previous unit's LAST read step
-            if currentUnitIndex > 0 {
-                 currentUnitIndex -= 1
-                 // Find last read step index in the pattern
-                 if let lastReadIndex = allSteps.indices.last(where: { allSteps[$0].type == .read }) {
-                     currentStepIndex = lastReadIndex
-                 } else {
-                     currentStepIndex = 0 // Fallback
-                 }
-                 playCurrentStep()
+        } else if currentUnitIndex > 0 {
+            currentUnitIndex -= 1
+            if let lastReadIndex = allSteps.indices.last(where: { allSteps[$0].type == .read }) {
+                currentStepIndex = lastReadIndex
+            } else {
+                currentStepIndex = 0
             }
         }
+
+        if wasPlaying {
+            playCurrentStep(skipPause: true)
+        } else {
+            highlightCurrentPosition()
+        }
     }
-    
+
+    /// Sets highlightVerseNumber to the first verse of the current unit at the current step, without starting audio.
+    private func highlightCurrentPosition() {
+        guard currentUnitIndex < unitRanges.count else { return }
+
+        let stepIdx: Int
+        if currentStepIndex < allSteps.count && allSteps[currentStepIndex].type == .read {
+            stepIdx = currentStepIndex
+        } else {
+            stepIdx = allSteps.indices.first(where: { allSteps[$0].type == .read }) ?? 0
+        }
+
+        guard stepIdx < allSteps.count,
+              let readIndex = readSteps.firstIndex(where: { $0.id == allSteps[stepIdx].id }),
+              let verses = stepTextVerses[readIndex] else { return }
+
+        let unitRange = unitRanges[currentUnitIndex]
+        let startIdx = min(unitRange.start, verses.count - 1)
+        guard startIdx >= 0 else { return }
+
+        highlightVerseNumber = stepIdx * 10000 + verses[startIdx].number
+    }
+
+    /// Navigate to previous unit; resume playback only if audio was already playing.
+    private func navigateToPreviousUnit() {
+        guard currentUnitIndex > 0 else { return }
+        let wasPlaying = isPlaying
+        stopAudioMonitoring()
+        isAutopausing = false
+        isPlaying = false
+
+        currentUnitIndex -= 1
+        currentStepIndex = 0
+
+        if wasPlaying {
+            playCurrentStep(skipPause: true)
+        } else {
+            highlightCurrentPosition()
+        }
+    }
+
+    /// Navigate to next unit; resume playback only if audio was already playing.
+    private func navigateToNextUnit() {
+        guard currentUnitIndex < unitRanges.count - 1 else { return }
+        let wasPlaying = isPlaying
+        stopAudioMonitoring()
+        isAutopausing = false
+        isPlaying = false
+
+        currentUnitIndex += 1
+        currentStepIndex = 0
+
+        if wasPlaying {
+            playCurrentStep(skipPause: true)
+        } else {
+            highlightCurrentPosition()
+        }
+    }
+
     private func moveToPreviousUnit() {
         guard currentUnitIndex > 0 else { return }
         stopAudioMonitoring()
