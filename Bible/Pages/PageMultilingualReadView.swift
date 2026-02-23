@@ -957,7 +957,7 @@ struct PageMultilingualReadView: View {
         let wasPlaying = isPlaying
         stopAudioMonitoring()
         isAutopausing = false
-        isPlaying = false
+        if !wasPlaying { isPlaying = false }
 
         // Find next read step in current unit
         if let nextIndex = allSteps.indices.first(where: { $0 > currentStepIndex && allSteps[$0].type == .read }) {
@@ -978,7 +978,7 @@ struct PageMultilingualReadView: View {
         let wasPlaying = isPlaying
         stopAudioMonitoring()
         isAutopausing = false
-        isPlaying = false
+        if !wasPlaying { isPlaying = false }
 
         // Find previous read step in current unit
         if let prevIndex = allSteps.indices.last(where: { $0 < currentStepIndex && allSteps[$0].type == .read }) {
@@ -1027,7 +1027,7 @@ struct PageMultilingualReadView: View {
         let wasPlaying = isPlaying
         stopAudioMonitoring()
         isAutopausing = false
-        isPlaying = false
+        if !wasPlaying { isPlaying = false }
 
         currentUnitIndex -= 1
         currentStepIndex = 0
@@ -1045,7 +1045,7 @@ struct PageMultilingualReadView: View {
         let wasPlaying = isPlaying
         stopAudioMonitoring()
         isAutopausing = false
-        isPlaying = false
+        if !wasPlaying { isPlaying = false }
 
         currentUnitIndex += 1
         currentStepIndex = 0
