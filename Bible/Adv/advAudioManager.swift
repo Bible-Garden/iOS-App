@@ -592,6 +592,18 @@ class PlayerModel: ObservableObject {
         }
     }
     
+    func seekToVerseIndex(_ index: Int) {
+        guard index >= 0 && index < audioVerses.count else { return }
+        setCurrentVerseIndex(index)
+        let begin = audioVerses[currentVerseIndex].begin
+        timeObserver.pause(true)
+        currentTime = begin
+        let targetTime = CMTime(seconds: begin, preferredTimescale: 600)
+        player.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+            self?.timeObserver.pause(false)
+        }
+    }
+
     func previousVerse() {
         let navigableStates: [PlaybackState] = [.playing, .pausing, .autopausing, .buffering, .error]
         if navigableStates.contains(state) && currentVerseIndex > 0 {
