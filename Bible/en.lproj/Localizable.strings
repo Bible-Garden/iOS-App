@@ -99,7 +99,7 @@
 "settings.add_choice" = "Add";
 "settings.cancel_choice" = "Cancel";
 "settings.warning" = "Warning!";
-"settings.select_language" = "Select Bible language";
+"settings.select_language" = "Select language";
 "settings.select_translation" = "Select translation";
 "settings.select_reader" = "Select who reads";
 

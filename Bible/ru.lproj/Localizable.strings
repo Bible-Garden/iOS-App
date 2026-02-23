@@ -99,7 +99,7 @@
 "settings.add_choice" = "Добавить";
 "settings.cancel_choice" = "Отмена";
 "settings.warning" = "Внимание!";
-"settings.select_language" = "Выберите язык Библии";
+"settings.select_language" = "Выберите язык";
 "settings.select_translation" = "Выберите перевод";
 "settings.select_reader" = "Выберите кто читает";
 

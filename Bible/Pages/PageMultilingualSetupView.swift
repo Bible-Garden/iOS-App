@@ -344,6 +344,8 @@ struct PageMultilingualSetupView: View {
                 .multilineTextAlignment(.center)
 
             Spacer()
+            Spacer()
+
         }
         .padding(.horizontal, globalBasePadding)
     }
