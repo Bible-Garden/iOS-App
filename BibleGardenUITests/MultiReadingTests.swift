@@ -788,19 +788,19 @@ final class MultiReadingSectionTests: XCTestCase {
         let stepBefore = app.multiCurrentStep() ?? "0"
         nextSection.tap()
 
-        // Ждём что плеер запустил воспроизведение нового шага
+        // Ждём что плеер запустил воспроизведение нового шага.
+        // С коротким стихом (verse mode) он может уже закончиться и перейти к pause step.
         let reachedPlaying = app.waitForMultiPlaybackState("playing", timeout: 10)
+            || app.waitForMultiPlaybackState("autopausing", timeout: 3)
 
         let stepAfter = app.multiCurrentStep() ?? "0"
         XCTAssertNotEqual(stepBefore, stepAfter,
                          "Step should update during playback section navigation")
 
-        // Для короткого стиха (unit=verse) аудио может закончиться до проверки —
-        // главное что playing было достигнуто
         XCTAssertTrue(reachedPlaying, "Playback should resume after section navigation")
 
         let stateLabel = app.staticTexts["multi-playback-state"]
-        if stateLabel.exists && stateLabel.label == "playing" {
+        if stateLabel.exists && (stateLabel.label == "playing" || stateLabel.label == "autopausing") {
             playPause.tap()
         }
     }
@@ -823,15 +823,17 @@ final class MultiReadingSectionTests: XCTestCase {
         guard nextUnit.isEnabled else { return }
         nextUnit.tap()
 
-        // Ждём что воспроизведение запустилось на новом юните
+        // Ждём что воспроизведение запустилось на новом юните.
+        // С коротким стихом (verse mode) он может уже закончиться и перейти к pause step.
         let resumedPlaying = app.waitForMultiPlaybackState("playing", timeout: 15)
-        XCTAssertTrue(resumedPlaying, "Playback should resume on next unit")
+            || app.waitForMultiPlaybackState("autopausing", timeout: 3)
+        XCTAssertTrue(resumedPlaying, "Playback should resume (playing or autopausing) on next unit")
 
         let unitAfter = app.multiCurrentUnit() ?? "-1"
         XCTAssertNotEqual(unitBefore, unitAfter, "Unit should have changed")
 
         let stateLabel = app.staticTexts["multi-playback-state"]
-        if stateLabel.exists && stateLabel.label == "playing" {
+        if stateLabel.exists && (stateLabel.label == "playing" || stateLabel.label == "autopausing") {
             playPause.tap()
         }
     }
@@ -997,33 +999,38 @@ final class MultiReadingStepTests: XCTestCase {
     }
 
     // #38 — Во время pause step тап play пропускает паузу.
-    // Результат: после тапа состояние переходит из "autopausing" к следующему read step.
+    // Результат: после тапа состояние переходит из "autopausing" к следующему read step (playing).
     @MainActor
     func testManualSkipPauseStep() {
         let playPause = app.buttons["multi-play-pause"]
         XCTAssertTrue(playPause.waitForExistence(timeout: 5))
-        guard playPause.isEnabled else { return }
+        XCTAssertTrue(playPause.isEnabled, "Play button should be enabled")
 
         playPause.tap()
-        _ = app.waitForMultiPlaybackState("playing", timeout: 15)
+        XCTAssertTrue(app.waitForMultiPlaybackState("playing", timeout: 15),
+                      "Playback should start")
 
-        // Ждём autopausing (pause step)
+        // Ждём autopausing (pause step между двумя read steps в two-langs, 30 сек)
         let gotAutopausing = app.waitForMultiPlaybackState("autopausing", timeout: 60)
-        if gotAutopausing {
-            // Тапаем play чтобы пропустить паузу
-            playPause.tap()
-            Thread.sleep(forTimeInterval: 1)
+        XCTAssertTrue(gotAutopausing, "Should reach autopausing state (pause step)")
 
-            let stateLabel = app.staticTexts["multi-playback-state"]
-            if stateLabel.exists {
-                XCTAssertNotEqual(stateLabel.label, "autopausing",
-                                  "Should skip pause and move to next step")
-            }
-        }
+        // Запоминаем step index во время паузы
+        let stepDuringPause = app.multiCurrentStep()
 
-        if app.waitForMultiPlaybackState("playing", timeout: 3) {
-            playPause.tap()
-        }
+        // Тапаем play чтобы пропустить паузу
+        playPause.tap()
+
+        // Должен перейти к следующему read step и начать играть
+        let resumed = app.waitForMultiPlaybackState("playing", timeout: 15)
+        XCTAssertTrue(resumed,
+                      "Should resume playing after skipping pause step")
+
+        // Step index должен увеличиться (пропущена пауза → следующий read step)
+        let stepAfterSkip = app.multiCurrentStep()
+        XCTAssertNotEqual(stepDuringPause, stepAfterSkip,
+                          "Step index should change after skipping pause. During pause: \(stepDuringPause ?? "nil"), After skip: \(stepAfterSkip ?? "nil")")
+
+        playPause.tap()
     }
 
     // #39 — С шаблоном two-langs чип перевода обновляется при смене read step.

@@ -849,8 +849,9 @@ struct PageMultilingualReadView: View {
     // MARK: Playback Control
     private func togglePlayPause() {
         if isAutopausing {
-            // Cancel the auto-pause timer
+            // Cancel the auto-pause timer and skip to the next step
             isAutopausing = false
+            playCurrentStep(skipPause: true)
             return
         }
 
