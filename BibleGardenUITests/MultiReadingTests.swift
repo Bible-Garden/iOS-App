@@ -170,33 +170,28 @@ final class MultiReadingSetupTests: XCTestCase {
         XCTAssertTrue(addRead.waitForExistence(timeout: 5))
         addRead.tap()
 
-        Thread.sleep(forTimeInterval: 2)
-
-        // Ищем кнопку сохранения в config sheet
-        let configSave = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'save' OR label CONTAINS[c] 'сохран' OR label CONTAINS[c] 'done' OR label CONTAINS[c] 'готово'")).firstMatch
-        if configSave.waitForExistence(timeout: 3) {
-            configSave.tap()
-            Thread.sleep(forTimeInterval: 1)
-        } else {
-            app.swipeDown()
-            Thread.sleep(forTimeInterval: 1)
-        }
+        // Config sheet открылся — сохраняем степ по кнопке с identifier
+        let configSave = app.buttons["multi-config-save"]
+        XCTAssertTrue(configSave.waitForExistence(timeout: 5),
+                      "Config save/add button should appear in sheet")
+        configSave.tap()
+        Thread.sleep(forTimeInterval: 1)
 
         let saveBtn = app.buttons["multilingual-save-and-read"]
         XCTAssertTrue(saveBtn.waitForExistence(timeout: 3))
         saveBtn.tap()
 
-        let saveAlert = app.otherElements["multi-save-alert"]
-        let readingPage = app.otherElements["page-multi-reading"]
-
-        if saveAlert.waitForExistence(timeout: 3) {
-            let skipBtn = app.buttons["multi-save-alert-skip"]
-            XCTAssertTrue(skipBtn.waitForExistence(timeout: 3), "Skip button should exist in save alert")
+        // Save alert — элементы с identifier "multi-save-alert"
+        // Кнопка «Read without saving» / «Не сохранять» — пропускаем сохранение шаблона
+        let skipPredicate = NSPredicate(format: "identifier == 'multi-save-alert' AND (label CONTAINS[c] 'without' OR label CONTAINS[c] 'без' OR label CONTAINS[c] 'Не сохран')")
+        let skipBtn = app.buttons.matching(skipPredicate).firstMatch
+        if skipBtn.waitForExistence(timeout: 5) {
             skipBtn.tap()
-
-            XCTAssertTrue(readingPage.waitForExistence(timeout: 10),
-                          "Should transition to reading page after skipping save")
         }
+
+        let readingPage = app.otherElements["page-multi-reading"]
+        XCTAssertTrue(readingPage.waitForExistence(timeout: 10),
+                      "Should transition to reading page after save & read")
     }
 
     // #10 — Из reading view тап по шестерёнке возвращает на setup page.
@@ -235,32 +230,28 @@ final class MultiReadingSetupTests: XCTestCase {
         addRead.tap()
         Thread.sleep(forTimeInterval: 2)
 
-        let configSave = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'save' OR label CONTAINS[c] 'сохран' OR label CONTAINS[c] 'done' OR label CONTAINS[c] 'готово'")).firstMatch
-        if configSave.waitForExistence(timeout: 3) {
-            configSave.tap()
-            Thread.sleep(forTimeInterval: 1)
-        } else {
-            app.swipeDown()
-            Thread.sleep(forTimeInterval: 1)
-        }
+        // Config sheet — сохраняем степ
+        let configSave = app.buttons["multi-config-save"]
+        XCTAssertTrue(configSave.waitForExistence(timeout: 5), "Config save button should appear")
+        configSave.tap()
+        Thread.sleep(forTimeInterval: 1)
 
         // 3. Сохранить и читать
         let saveBtn = app.buttons["multilingual-save-and-read"]
         XCTAssertTrue(saveBtn.waitForExistence(timeout: 3))
         saveBtn.tap()
 
-        // Обработка save-alert
-        let saveAlert = app.otherElements["multi-save-alert"]
-        if saveAlert.waitForExistence(timeout: 3) {
-            let skipBtn = app.buttons["multi-save-alert-skip"]
-            if skipBtn.waitForExistence(timeout: 2) {
-                skipBtn.tap()
-            }
+        // Обработка save-alert (кнопка «Read without saving»)
+        let skipPredicate = NSPredicate(format: "identifier == 'multi-save-alert' AND (label CONTAINS[c] 'without' OR label CONTAINS[c] 'без' OR label CONTAINS[c] 'Не сохран')")
+        let skipBtn = app.buttons.matching(skipPredicate).firstMatch
+        if skipBtn.waitForExistence(timeout: 5) {
+            skipBtn.tap()
         }
 
         // 4. Проверяем reading page
         let readingPage = app.otherElements["page-multi-reading"]
-        if readingPage.waitForExistence(timeout: 10) {
+        XCTAssertTrue(readingPage.waitForExistence(timeout: 10), "Reading page should appear")
+        if readingPage.exists {
             let title = app.buttons["multi-chapter-title"]
             if title.waitForExistence(timeout: 8) {
                 XCTAssertFalse(title.label.isEmpty, "Title should have text")

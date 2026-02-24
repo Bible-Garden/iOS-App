@@ -91,6 +91,7 @@ struct PageMultilingualConfigView: View {
                         .fontWeight(.bold)
                         .foregroundColor(canSave ? Color("Mustard") : Color.gray)
                         .disabled(!canSave)
+                        .accessibilityIdentifier("multi-config-save")
                     }
                 }
                 .padding(.horizontal, globalBasePadding)
