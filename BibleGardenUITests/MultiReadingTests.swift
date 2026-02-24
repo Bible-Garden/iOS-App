@@ -321,27 +321,20 @@ final class MultiReadingTests: XCTestCase {
 
     // MARK: - Загрузка и отображение (#11-#15)
 
-    // #11 — Открываем reading page с шаблоном default.
-    // Результат: WebView с текстом главы загрузился.
+    // #11-#15 — Открываем reading page с шаблоном default, проверяем все ключевые элементы:
+    // WebView с текстом, заголовок главы, 7 кнопок аудио-панели, чипы перевода/диктора, счётчик юнитов.
     @MainActor
-    func testReadingPageLoadsText() {
+    func testReadingPageElements() {
+        // #11 — WebView с текстом главы
         let textContent = app.waitForMultiTextContent(timeout: 15)
         XCTAssertNotNil(textContent, "WebView with text content should load")
-    }
 
-    // #12 — Проверяем заголовок главы в хедере.
-    // Результат: кнопка-заголовок существует и содержит непустой текст.
-    @MainActor
-    func testReadingPageShowsChapterTitle() {
+        // #12 — Заголовок главы
         let title = app.buttons["multi-chapter-title"]
         XCTAssertTrue(title.waitForExistence(timeout: 8), "Chapter title button should exist")
         XCTAssertFalse(title.label.isEmpty, "Chapter title should have text")
-    }
 
-    // #13 — Проверяем наличие всех 7 кнопок аудио-панели.
-    // Результат: prev/next chapter, prev/next unit, prev/next section, play/pause — все существуют.
-    @MainActor
-    func testAudioPanelShowsAllControls() {
+        // #13 — 7 кнопок аудио-панели
         let controls = [
             "multi-prev-chapter", "multi-next-chapter",
             "multi-prev-unit", "multi-next-unit",
@@ -353,28 +346,18 @@ final class MultiReadingTests: XCTestCase {
             XCTAssertTrue(button.waitForExistence(timeout: 5),
                           "Audio control '\(id)' should exist")
         }
-    }
 
-    // #14 — Проверяем чипы перевода и диктора на аудио-панели.
-    // Результат: оба чипа существуют.
-    @MainActor
-    func testTranslationAndVoiceChipsVisible() {
-        // Чипы — HStack/VStack с accessibilityIdentifier, тип элемента зависит от контекста
-        let transChip = app.descendants(matching: .any)["multi-translation-chip"]
+        // #14 — Чипы перевода и диктора
+        let transChip = app.staticTexts["multi-translation-chip"]
         XCTAssertTrue(transChip.waitForExistence(timeout: 8), "Translation chip should exist")
 
         let voiceChip = app.descendants(matching: .any)["multi-voice-chip"]
         XCTAssertTrue(voiceChip.waitForExistence(timeout: 3), "Voice chip should exist")
-    }
 
-    // #15 — Проверяем счётчик юнитов "X of Y".
-    // Результат: `multi-unit-counter` отображает "1 of N" (N > 0).
-    @MainActor
-    func testUnitCounterVisible() {
+        // #15 — Счётчик юнитов
         let counter = app.staticTexts["multi-unit-counter"]
         XCTAssertTrue(counter.waitForExistence(timeout: 8), "Unit counter should exist")
-        let label = counter.label
-        XCTAssertTrue(label.contains("1"), "Unit counter should show current unit")
+        XCTAssertTrue(counter.label.contains("1"), "Unit counter should show current unit")
     }
 
     // MARK: - Воспроизведение (#16-#18)
