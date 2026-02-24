@@ -490,21 +490,36 @@ final class MultiReadingTests: XCTestCase {
     }
 
     // #21 — Тап на заголовок главы открывает sheet выбора главы.
-    // Результат: sheet появляется с кнопкой закрытия, закрывается по кнопке.
+    // Выбираем другую главу — заголовок меняется, страница перезагружается.
     @MainActor
     func testChapterSelectFromTitle() {
         let title = app.buttons["multi-chapter-title"]
         XCTAssertTrue(title.waitForExistence(timeout: 8))
+        let oldTitle = title.label
         title.tap()
 
         let closeBtn = app.buttons["select-close"]
         XCTAssertTrue(closeBtn.waitForExistence(timeout: 5),
                       "Chapter selection sheet should appear")
-        closeBtn.tap()
 
+        // Ищем кнопку с номером главы, отличающимся от текущей.
+        // По умолчанию открывается Ин.1 — тапаем «2» или «3» из грида.
+        let chapterBtn = app.buttons["2"]
+        if chapterBtn.waitForExistence(timeout: 5) && chapterBtn.isHittable {
+            chapterBtn.tap()
+        } else {
+            // Если «2» не видна — просто закрываем sheet
+            closeBtn.tap()
+        }
+
+        // Ждём возврат на reading page и смену заголовка
         let playPause = app.buttons["multi-play-pause"]
-        XCTAssertTrue(playPause.waitForExistence(timeout: 8),
-                      "Should return to reading page after closing chapter select")
+        XCTAssertTrue(playPause.waitForExistence(timeout: 10),
+                      "Should return to reading page after chapter select")
+
+        _ = app.waitForLabelChange(element: title, from: oldTitle, timeout: 10)
+        XCTAssertNotEqual(title.label, oldTitle,
+                          "Chapter title should change after selecting a different chapter")
     }
 
     // MARK: - Навигация по юнитам (#22-#27)
