@@ -15,12 +15,16 @@ extension View {
 
     /// Adaptive header padding: adds top padding only when safe area is small (iPad, iPhone SE),
     /// always adds bottom padding for consistent spacing below the header.
-    func headerPadding() -> some View {
+    /// - Parameters:
+    ///   - extraTop: additional top padding for large-safe-area devices (iPhone with notch), default 0
+    ///   - extraTopSmall: additional top padding for small-safe-area devices (iPad, iPhone SE), default 0
+    func headerPadding(extraTop: CGFloat = 0, extraTopSmall: CGFloat = 0) -> some View {
         let topInset = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
             .windows.first?.safeAreaInsets.top ?? 0
-        let topPadding: CGFloat = topInset > 40 ? 0 : 10
+        let basePadding: CGFloat = topInset > 40 ? 0 : 10
+        let extra: CGFloat = topInset > 40 ? extraTop : extraTopSmall
         return self
-            .padding(.top, topPadding)
+            .padding(.top, basePadding + extra)
             .padding(.bottom, 12)
     }
 
