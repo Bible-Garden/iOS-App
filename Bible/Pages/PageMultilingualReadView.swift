@@ -113,6 +113,7 @@ struct PageMultilingualReadView: View {
                         }
                         .padding(.top, 6)
                     }
+                    .accessibilityIdentifier("multi-chapter-title")
                     
                     Spacer()
                     
@@ -125,6 +126,7 @@ struct PageMultilingualReadView: View {
                             .font(.system(size: 26))
                             .foregroundColor(.white)
                     }
+                    .accessibilityIdentifier("multi-config-button")
                 }
                 .padding(.horizontal, globalBasePadding)
                 .padding(.bottom, 5)
@@ -140,6 +142,7 @@ struct PageMultilingualReadView: View {
                     Text(errorDescription)
                         .foregroundColor(.pink)
                         .padding(globalBasePadding)
+                        .accessibilityIdentifier("multi-error-text")
                     Spacer()
                 } else {
                     // Text display using WebView for proper HTML formatting
@@ -151,6 +154,7 @@ struct PageMultilingualReadView: View {
                             handleTextScroll(isAtBottom: isAtBottom)
                         }
                     )
+                    .accessibilityIdentifier("multi-text-content")
                     .mask(
                         LinearGradient(
                             gradient: Gradient(colors: [Color.black, Color.black, Color.black.opacity(0)]),
@@ -279,6 +283,7 @@ struct PageMultilingualReadView: View {
                             RoundedRectangle(cornerRadius: 5, style: .continuous)
                                 .stroke(Color("localAccentColor").opacity(0.25), lineWidth: 1)
                         }
+                        .accessibilityIdentifier("multi-translation-chip")
 
                         // Reader name
                         VStack(alignment: .leading, spacing: 0) {
@@ -291,6 +296,7 @@ struct PageMultilingualReadView: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                         }
+                        .accessibilityIdentifier("multi-voice-chip")
                     }
                     
                     Spacer()
@@ -306,7 +312,21 @@ struct PageMultilingualReadView: View {
                             .fontWeight(.bold)
                             .foregroundColor(Color("localAccentColor"))
                             .offset(y: -2)
+                            .accessibilityIdentifier("multi-unit-counter")
                     }
+
+                    #if DEBUG
+                    VStack(spacing: 0) {
+                        Text(multiPlaybackStateName)
+                            .accessibilityIdentifier("multi-playback-state")
+                        Text("\(currentUnitIndex)")
+                            .accessibilityIdentifier("multi-current-unit")
+                        Text("\(currentStepIndex)")
+                            .accessibilityIdentifier("multi-current-step")
+                    }
+                    .font(.system(size: 1))
+                    .foregroundStyle(.clear)
+                    #endif
                 }
                 .padding(.horizontal, globalBasePadding)
                 .padding(.vertical, 10)
@@ -333,6 +353,7 @@ struct PageMultilingualReadView: View {
                         Image(systemName: "chevron.backward.2")
                             .foregroundColor(prevColor)
                     }
+                    .accessibilityIdentifier("multi-prev-chapter")
                     .disabled(prevExcerpt.isEmpty)
                     Spacer()
 
@@ -344,6 +365,7 @@ struct PageMultilingualReadView: View {
                             .font(.system(size: 22))
                             .foregroundColor(currentUnitIndex > 0 ? buttonsColor : Color("localAccentColor").opacity(0.4))
                     }
+                    .accessibilityIdentifier("multi-prev-unit")
                     .disabled(!hasAudio || currentUnitIndex <= 0)
                     Spacer()
 
@@ -354,6 +376,7 @@ struct PageMultilingualReadView: View {
                         Image(systemName: "arrow.turn.left.up")
                             .foregroundColor(isAtSectionStart ? Color("localAccentColor").opacity(0.4) : buttonsColor)
                     }
+                    .accessibilityIdentifier("multi-prev-section")
                     .disabled(!hasAudio || isAtSectionStart)
                     Spacer()
 
@@ -373,6 +396,7 @@ struct PageMultilingualReadView: View {
                         .font(.system(size: 55))
                         .foregroundColor(buttonsColor)
                     }
+                    .accessibilityIdentifier("multi-play-pause")
                     .disabled(!hasAudio)
                     Spacer()
 
@@ -383,6 +407,7 @@ struct PageMultilingualReadView: View {
                         Image(systemName: "arrow.turn.right.down")
                             .foregroundColor(isAtSectionEnd ? Color("localAccentColor").opacity(0.4) : buttonsColor)
                     }
+                    .accessibilityIdentifier("multi-next-section")
                     .disabled(!hasAudio || isAtSectionEnd)
                     Spacer()
 
@@ -394,6 +419,7 @@ struct PageMultilingualReadView: View {
                             .font(.system(size: 22))
                             .foregroundColor(currentUnitIndex < unitRanges.count - 1 ? buttonsColor : Color("localAccentColor").opacity(0.4))
                     }
+                    .accessibilityIdentifier("multi-next-unit")
                     .disabled(!hasAudio || currentUnitIndex >= unitRanges.count - 1)
                     Spacer()
 
@@ -409,6 +435,7 @@ struct PageMultilingualReadView: View {
                         Image(systemName: "chevron.forward.2")
                             .foregroundColor(nextColor)
                     }
+                    .accessibilityIdentifier("multi-next-chapter")
                     .disabled(nextExcerpt.isEmpty)
                 }
                 .foregroundColor(Color("localAccentColor"))
@@ -463,6 +490,7 @@ struct PageMultilingualReadView: View {
             }
             .frame(maxWidth: .infinity)
         }
+        .accessibilityIdentifier("multi-chevron")
     }
 
     private var audioPanelHeight: CGFloat {
@@ -571,12 +599,33 @@ struct PageMultilingualReadView: View {
             .padding(.horizontal, globalBasePadding)
             .frame(minHeight: 24)
         }
+        .accessibilityIdentifier("multi-chapter-progress")
+        .accessibilityValue(isRead ? "read" : "unread")
         .buttonStyle(.plain)
         .disabled(!canMark)
         .opacity(canMark ? 1 : 0)
         .padding(.top, 2)
     }
-    
+
+    #if DEBUG
+    private var multiPlaybackStateName: String {
+        if isAutopausing { return "autopausing" }
+        if isPlaying {
+            switch audiopleer.state {
+            case .buffering: return "buffering"
+            default: return "playing"
+            }
+        }
+        switch audiopleer.state {
+        case .pausing: return "pausing"
+        case .finished: return "finished"
+        case .segmentFinished: return "segmentFinished"
+        case .error: return "error"
+        default: return "idle"
+        }
+    }
+    #endif
+
     // Cycle playback speed
     private func cycleSpeed() {
         let speeds: [Double] = [0.75, 1.0, 1.25, 1.5, 2.0]
@@ -634,17 +683,23 @@ struct PageMultilingualReadView: View {
         // Load data for each read step
         for (index, step) in readSteps.enumerated() {
             do {
+                if TestingEnvironment.shouldForceLoadError {
+                    throw NSError(domain: "UITesting", code: 500,
+                        userInfo: [NSLocalizedDescriptionKey: "Simulated load error for UI testing"])
+                }
+
                 let (textVerses, audioVerses, audioUrl, _, part) = try await getExcerptTextualVersesOnline(
                     excerpts: settingsManager.currentExcerpt,
                     client: settingsManager.client,
                     translation: step.translationCode,
                     voice: step.voiceCode
                 )
-                
+
                 stepTextVerses[index] = textVerses
                 stepAudioVerses[index] = audioVerses
-                stepAudioUrls[index] = audioUrl
-                if let url = URL(string: audioUrl) {
+                let effectiveAudioUrl = TestingEnvironment.forceNoAudio ? "" : audioUrl
+                stepAudioUrls[index] = effectiveAudioUrl
+                if let url = URL(string: effectiveAudioUrl), !effectiveAudioUrl.isEmpty {
                     stepPlayerItems[index] = AVPlayerItem(url: url)
                 }
                 
@@ -794,8 +849,9 @@ struct PageMultilingualReadView: View {
     // MARK: Playback Control
     private func togglePlayPause() {
         if isAutopausing {
-            // Cancel the auto-pause timer
+            // Cancel the auto-pause timer and skip to the next step
             isAutopausing = false
+            playCurrentStep(skipPause: true)
             return
         }
 
@@ -954,10 +1010,10 @@ struct PageMultilingualReadView: View {
     
     // Manual navigation to next content (no audio start — just highlight for reading)
     private func moveToNextSection() {
-        let wasPlaying = isPlaying
+        let wasActive = isPlaying || isAutopausing
         stopAudioMonitoring()
         isAutopausing = false
-        if !wasPlaying { isPlaying = false }
+        isPlaying = false
 
         // Find next read step in current unit
         if let nextIndex = allSteps.indices.first(where: { $0 > currentStepIndex && allSteps[$0].type == .read }) {
@@ -967,7 +1023,7 @@ struct PageMultilingualReadView: View {
             currentStepIndex = 0
         }
 
-        if wasPlaying {
+        if wasActive {
             playCurrentStep(skipPause: true)
         } else {
             highlightCurrentPosition()
@@ -975,10 +1031,10 @@ struct PageMultilingualReadView: View {
     }
 
     private func moveToPreviousSection() {
-        let wasPlaying = isPlaying
+        let wasActive = isPlaying || isAutopausing
         stopAudioMonitoring()
         isAutopausing = false
-        if !wasPlaying { isPlaying = false }
+        isPlaying = false
 
         // Find previous read step in current unit
         if let prevIndex = allSteps.indices.last(where: { $0 < currentStepIndex && allSteps[$0].type == .read }) {
@@ -992,7 +1048,7 @@ struct PageMultilingualReadView: View {
             }
         }
 
-        if wasPlaying {
+        if wasActive {
             playCurrentStep(skipPause: true)
         } else {
             highlightCurrentPosition()
@@ -1024,15 +1080,15 @@ struct PageMultilingualReadView: View {
     /// Navigate to previous unit; resume playback only if audio was already playing.
     private func navigateToPreviousUnit() {
         guard currentUnitIndex > 0 else { return }
-        let wasPlaying = isPlaying
+        let wasActive = isPlaying || isAutopausing
         stopAudioMonitoring()
         isAutopausing = false
-        if !wasPlaying { isPlaying = false }
+        isPlaying = false
 
         currentUnitIndex -= 1
         currentStepIndex = 0
 
-        if wasPlaying {
+        if wasActive {
             playCurrentStep(skipPause: true)
         } else {
             highlightCurrentPosition()
@@ -1042,15 +1098,15 @@ struct PageMultilingualReadView: View {
     /// Navigate to next unit; resume playback only if audio was already playing.
     private func navigateToNextUnit() {
         guard currentUnitIndex < unitRanges.count - 1 else { return }
-        let wasPlaying = isPlaying
+        let wasActive = isPlaying || isAutopausing
         stopAudioMonitoring()
         isAutopausing = false
-        if !wasPlaying { isPlaying = false }
+        isPlaying = false
 
         currentUnitIndex += 1
         currentStepIndex = 0
 
-        if wasPlaying {
+        if wasActive {
             playCurrentStep(skipPause: true)
         } else {
             highlightCurrentPosition()
@@ -1062,7 +1118,7 @@ struct PageMultilingualReadView: View {
         stopAudioMonitoring()
         isAutopausing = false
         isPlaying = false
-        
+
         currentUnitIndex -= 1
         currentStepIndex = 0
         playCurrentStep()
@@ -1072,13 +1128,12 @@ struct PageMultilingualReadView: View {
         stopAudioMonitoring()
         isAutopausing = false
         isPlaying = false
-        
+
         if currentUnitIndex < unitRanges.count - 1 {
             currentUnitIndex += 1
             currentStepIndex = 0
             playCurrentStep()
         }
-        // If at end, do nothing (button disabled) OR could trigger next chapter if desired.
     }
 
     
@@ -1279,6 +1334,9 @@ struct PageMultilingualReadView: View {
     }
 
     private var textReadingAutoProgressRequiredSeconds: Double {
+        if let override = TestingEnvironment.readingProgressSecondsOverride {
+            return override
+        }
         let verseCount = max(chapterVerseNumbers.count, stepTextVerses[0]?.count ?? 0)
         guard verseCount > 0 else { return 60 }
         return min(60, max(10, Double(verseCount) * 2))
@@ -1521,22 +1579,19 @@ struct PageMultilingualReadView: View {
                                 let verse = verses[i]
                                 let uniqueId = stepIdx * 10000 + verse.number
                                 
-                                // Display headers (titles/subtitles) if in Fragment mode
-                                if settingsManager.multilingualReadUnit == .fragment {
-                                    // Regular titles
-                                    let regularTitles = verse.beforeTitles.filter { !$0.subtitle }
-                                    for title in regularTitles {
-                                        htmlString += "<p class=\"title\">\(title.text)</p>"
-                                        if let reference = title.reference, !reference.isEmpty {
-                                            htmlString += "<p class=\"reference\">\(reference)</p>"
-                                        }
+                                // Display headers (titles/subtitles)
+                                let regularTitles = verse.beforeTitles.filter { !$0.subtitle }
+                                for title in regularTitles {
+                                    htmlString += "<p class=\"title\">\(title.text)</p>"
+                                    if let reference = title.reference, !reference.isEmpty {
+                                        htmlString += "<p class=\"reference\">\(reference)</p>"
                                     }
-                                    
-                                    // Subtitles at start
-                                    let startSubtitles = verse.beforeTitles.filter { $0.subtitle && ($0.positionHtml ?? 0) == 0 }
-                                    for sub in startSubtitles {
-                                        htmlString += "<p class=\"subtitle\">\(sub.text)</p>"
-                                    }
+                                }
+
+                                // Subtitles at start
+                                let startSubtitles = verse.beforeTitles.filter { $0.subtitle && ($0.positionHtml ?? 0) == 0 }
+                                for sub in startSubtitles {
+                                    htmlString += "<p class=\"subtitle\">\(sub.text)</p>"
                                 }
                                 
                                 htmlString += """

@@ -73,4 +73,72 @@ extension XCUIApplication {
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
+
+    // MARK: - Multilingual Reading Helpers
+
+    func navigateToMultiSetupPage() {
+        navigateViaMenu(to: "menu-multilingual")
+        let setupPage = otherElements["page-multi-setup"]
+        XCTAssertTrue(waitForElement(setupPage, timeout: 5), "Multi setup page did not appear")
+    }
+
+    func navigateToMultiReadingPage() {
+        navigateViaMenu(to: "menu-multilingual")
+        let readingPage = otherElements["page-multi-reading"]
+        XCTAssertTrue(waitForElement(readingPage, timeout: 10), "Multi reading page did not appear")
+    }
+
+    func waitForMultiTextContent(timeout: TimeInterval = 15) -> XCUIElement? {
+        let webView = webViews.firstMatch
+        if webView.waitForExistence(timeout: timeout) { return webView }
+        let other = otherElements["multi-text-content"]
+        if other.waitForExistence(timeout: 2) { return other }
+        return nil
+    }
+
+    func waitForMultiPlaybackState(_ state: String, timeout: TimeInterval = 10) -> Bool {
+        let stateLabel = staticTexts["multi-playback-state"]
+        guard stateLabel.waitForExistence(timeout: 3) else { return false }
+        return waitForLabel(element: stateLabel, toBe: state, timeout: timeout)
+    }
+
+    func multiCurrentUnit() -> String? {
+        let label = staticTexts["multi-current-unit"]
+        guard label.waitForExistence(timeout: 3) else { return nil }
+        return label.label
+    }
+
+    func multiCurrentStep() -> String? {
+        let label = staticTexts["multi-current-step"]
+        guard label.waitForExistence(timeout: 3) else { return nil }
+        return label.label
+    }
+}
+
+// MARK: - Shared API Health Check
+
+/// Проверяет доступность API с повторными попытками (до 3 раз).
+/// URL берётся из TestConfig.baseURL (xcconfig → Info.plist).
+/// Возвращает true, если сервер ответил HTTP-статусом.
+func checkAPIAvailability(maxAttempts: Int = 3) -> Bool {
+    let urlString = "\(TestConfig.baseURL)/api/languages"
+    guard let url = URL(string: urlString) else { return false }
+    for attempt in 1...maxAttempts {
+        let semaphore = DispatchSemaphore(value: 0)
+        var success = false
+        var request = URLRequest(url: url, timeoutInterval: 10)
+        request.httpMethod = "GET"
+        URLSession.shared.dataTask(with: request) { _, response, _ in
+            if let http = response as? HTTPURLResponse {
+                success = (200...499).contains(http.statusCode)
+            }
+            semaphore.signal()
+        }.resume()
+        _ = semaphore.wait(timeout: .now() + 15)
+        if success { return true }
+        if attempt < maxAttempts {
+            Thread.sleep(forTimeInterval: 2)
+        }
+    }
+    return false
 }

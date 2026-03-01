@@ -33,6 +33,16 @@ enum TestingEnvironment {
               idx + 1 < CommandLine.arguments.count else { return nil }
         return CommandLine.arguments[idx + 1]
     }()
+    static let multiTemplateOverride: String? = {
+        guard let idx = CommandLine.arguments.firstIndex(of: "--multi-template"),
+              idx + 1 < CommandLine.arguments.count else { return nil }
+        return CommandLine.arguments[idx + 1]
+    }()
+    static let multiUnitOverride: String? = {
+        guard let idx = CommandLine.arguments.firstIndex(of: "--multi-unit"),
+              idx + 1 < CommandLine.arguments.count else { return nil }
+        return CommandLine.arguments[idx + 1]
+    }()
     /// One-shot: consumed after first use
     static var loadErrorOnceConsumed = false
     static var shouldForceLoadError: Bool {
