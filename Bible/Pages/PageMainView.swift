@@ -22,7 +22,7 @@ struct PageMainView: View {
                         .environmentObject(settingsManager)
                     Spacer()
                 }
-                .padding(.top, 20)
+                .padding(.top, 30)
                 .padding(.bottom, 12)
 
                 Spacer().frame(height: 28)
