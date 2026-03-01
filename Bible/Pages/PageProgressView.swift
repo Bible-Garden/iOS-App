@@ -27,7 +27,7 @@ struct PageProgressView: View {
                             showSettingsSheet = true
                         } label: {
                             Image(systemName: "gearshape.fill")
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.white)
                                 .font(.system(size: 26))
                         }
                     }
