@@ -186,3 +186,7 @@
 "page.read.reader" = "READER:";
 "page.read.of" = "of";
 "settings.speed" = "Speed";
+
+/* Version Update */
+"update.later" = "Later";
+"update.go" = "Update";

@@ -406,7 +406,9 @@ struct SkeletonView: View {
     
     // Not relevant here
     @State private var showAsPartOfRead: Bool = false
-    
+    @State private var showSoftUpdate = false
+    @State private var versionCheckData: Components.Schemas.VersionCheckModel? = nil
+
     var body: some View {
         ZStack {
             Color("DarkGreen")
@@ -469,8 +471,82 @@ struct SkeletonView: View {
                 .offset(x: settingsManager.showMenu ? 0 : -getRect().width)
                 .animation(.spring(), value: settingsManager.showMenu)
                 .id("menu_\(settingsManager.selectedMenuItem)_\(localizationManager.currentLanguage.rawValue)")
+
+            // Hard update — full-screen blocking overlay
+            if let data = versionCheckData, data.update_type == .hard {
+                Color("DarkGreen").ignoresSafeArea()
+                VStack(spacing: 20) {
+                    Spacer()
+                    Image(systemName: "arrow.up.circle")
+                        .font(.system(size: 60))
+                        .foregroundColor(.white.opacity(0.7))
+                    if let msg = data.message {
+                        Text(localizedMessage(msg))
+                            .font(.body)
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                    Button {
+                        if let url = URL(string: data.store_url) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Text("update.go".localized)
+                            .fontWeight(.bold)
+                            .foregroundColor(Color("DarkGreen"))
+                            .padding(.horizontal, 40)
+                            .padding(.vertical, 12)
+                            .background(Color.white)
+                            .cornerRadius(10)
+                    }
+                    Spacer()
+                }
+            }
         }
-        
+        .onAppear {
+            checkAppVersion()
+        }
+        .alert("", isPresented: $showSoftUpdate) {
+            Button("update.later".localized, role: .cancel) { }
+            Button("update.go".localized) {
+                if let data = versionCheckData, let url = URL(string: data.store_url) {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } message: {
+            if let data = versionCheckData, let msg = data.message {
+                Text(localizedMessage(msg))
+            }
+        }
+    }
+
+    // MARK: - Version Check
+
+    private func checkAppVersion() {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        Task {
+            do {
+                let response = try await settingsManager.client.versionCheck(query: .init(app_version: appVersion))
+                let data = try response.ok.body.json
+                await MainActor.run {
+                    versionCheckData = data
+                    if data.update_type == .soft {
+                        showSoftUpdate = true
+                    }
+                }
+            } catch {
+                // Silently ignore — don't block app on network error
+            }
+        }
+    }
+
+    private func localizedMessage(_ text: Components.Schemas.LocalizedText) -> String {
+        switch localizationManager.currentLanguage {
+        case .russian:  return text.ru
+        case .english:  return text.en
+        case .ukrainian: return text.uk
+        }
     }
 }
 

@@ -185,3 +185,7 @@
 "page.read.of" = "з";
 
 "settings.speed" = "Швидкість";
+
+/* Version Update */
+"update.later" = "Пізніше";
+"update.go" = "Оновити";
