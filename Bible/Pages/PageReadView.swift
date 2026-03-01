@@ -98,7 +98,7 @@ struct PageReadView: View {
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, globalBasePadding)
-                    .padding(.vertical, 12)
+                    .headerPadding()
 
                     // MARK: Text content
                     if isTextLoading {

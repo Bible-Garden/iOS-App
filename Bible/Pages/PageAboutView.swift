@@ -39,7 +39,7 @@ struct PageAboutView: View {
                     Spacer()
                 }
                 .padding(.horizontal, globalBasePadding)
-                .padding(.vertical, 12)
+                .headerPadding()
 
                 ScrollView {
                     VStack(spacing: 20) {

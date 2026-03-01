@@ -128,7 +128,7 @@ struct PageMultilingualReadView: View {
                     .accessibilityIdentifier("multi-config-button")
                 }
                 .padding(.horizontal, globalBasePadding)
-                .padding(.vertical, 12)
+                .headerPadding()
                 
                 // MARK: Content
                 if isLoading {

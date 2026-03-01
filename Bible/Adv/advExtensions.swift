@@ -13,6 +13,17 @@ extension View {
         }
     }
 
+    /// Adaptive header padding: adds top padding only when safe area is small (iPad, iPhone SE),
+    /// always adds bottom padding for consistent spacing below the header.
+    func headerPadding() -> some View {
+        let topInset = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
+            .windows.first?.safeAreaInsets.top ?? 0
+        let topPadding: CGFloat = topInset > 30 ? 0 : 10
+        return self
+            .padding(.top, topPadding)
+            .padding(.bottom, 12)
+    }
+
     @ViewBuilder
     func hideScrollContentBackground() -> some View {
         if #available(iOS 16.0, *) {
