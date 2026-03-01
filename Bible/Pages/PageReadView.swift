@@ -82,7 +82,6 @@ struct PageReadView: View {
                                     .font(.footnote)
                                     .fontWeight(.bold)
                             }
-                            .padding(.top, 6)
                         }
                         .accessibilityIdentifier("read-chapter-title")
 

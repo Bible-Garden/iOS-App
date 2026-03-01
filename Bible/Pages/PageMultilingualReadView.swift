@@ -111,7 +111,6 @@ struct PageMultilingualReadView: View {
                                 .font(.footnote)
                                 .fontWeight(.bold)
                         }
-                        .padding(.top, 6)
                     }
                     .accessibilityIdentifier("multi-chapter-title")
                     
