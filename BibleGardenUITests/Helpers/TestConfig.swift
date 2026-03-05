@@ -1,7 +1,7 @@
 import Foundation
 
 enum TestConfig {
-    /// Читает API_BASE_URL из Bible/Debug.xcconfig (путь определяется через #filePath).
+    /// Читает API_BASE_URL из BibleGarden/Debug.xcconfig (путь определяется через #filePath).
     /// Xcconfig использует $() для экранирования // — заменяем на пустую строку.
     static var baseURL: String {
         let thisFile = #filePath // compile-time path: .../BibleGardenUITests/Helpers/TestConfig.swift
@@ -10,7 +10,7 @@ enum TestConfig {
             .deletingLastPathComponent() // BibleGardenUITests/
             .deletingLastPathComponent() // project root
         let xcconfigURL = projectRoot
-            .appendingPathComponent("Bible")
+            .appendingPathComponent("BibleGarden")
             .appendingPathComponent("Debug.xcconfig")
 
         guard let contents = try? String(contentsOf: xcconfigURL, encoding: .utf8) else {
