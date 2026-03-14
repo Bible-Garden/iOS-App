@@ -79,8 +79,6 @@
 		04DED7652F48B78600D0B620 /* BibleGarden.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = BibleGarden.xctestplan; sourceTree = "<group>"; };
 		4C141A032BED275000412C60 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		4C3F9EB42C148DCD00EA807C /* advElements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = advElements.swift; sourceTree = "<group>"; };
-		4C620B6E2E9B0091004BF2CB /* Configuration.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Configuration.plist; sourceTree = "<group>"; };
-		4C620B722E9B00A3004BF2CB /* Configuration.plist.example */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Configuration.plist.example; sourceTree = "<group>"; };
 		4C620B7D2E9B0123004BF2CB /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		4C620B802E9B0200004BF2CB /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		4C620B812E9B0201004BF2CB /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
@@ -243,8 +241,6 @@
 				4C620B812E9B0201004BF2CB /* Release.xcconfig */,
 				4C620B822E9B0202004BF2CB /* Debug.xcconfig.example */,
 				4C620B832E9B0203004BF2CB /* Release.xcconfig.example */,
-				4C620B6E2E9B0091004BF2CB /* Configuration.plist */,
-				4C620B722E9B00A3004BF2CB /* Configuration.plist.example */,
 				4CFC91FF2C59AB75005AFAA5 /* openapi.yaml */,
 				4CFC91FE2C59AB26005AFAA5 /* openapi-generator-config.yml */,
 				4C141A032BED275000412C60 /* MenuView.swift */,

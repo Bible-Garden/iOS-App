@@ -90,7 +90,6 @@ func generateHTMLContent(verses: [BibleTextualVerseFull], fontIncreasePercent: D
                 .quote {
                     display: block;
                     font-family: serif;
-                    font-style: italic;
                 }
                 .quote-container .verse-number {
                     position: absolute;
