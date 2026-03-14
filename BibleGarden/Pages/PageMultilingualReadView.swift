@@ -1522,7 +1522,6 @@ struct PageMultilingualReadView: View {
                 .quote {
                     display: block;
                     font-family: serif;
-                    font-style: italic;
                 }
                 
                 /* Title Styles */
