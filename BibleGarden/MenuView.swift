@@ -282,9 +282,7 @@ struct MenuView: View {
     }
 
     private func selectItem(_ item: MenuItem) {
-        withAnimation(.easeInOut(duration: 0.25)) {
-            settingsManager.selectedMenuItem = item
-        }
+        settingsManager.selectedMenuItem = item
         withAnimation(.spring()) {
             settingsManager.showMenu = false
         }
