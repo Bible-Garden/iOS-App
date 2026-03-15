@@ -28,6 +28,7 @@ extension View {
             self.presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(Color("DarkGreen"))
+                .presentationCornerRadius(AppHeaderMetrics.embeddedCornerRadius)
         } else if #available(iOS 16.0, *) {
             self.presentationDetents([.large])
                 .presentationDragIndicator(.visible)
