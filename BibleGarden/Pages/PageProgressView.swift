@@ -331,7 +331,7 @@ private struct ProgressSettingsSheet: View {
                 } trailing: {
                     HeaderPlaceholder()
                 }
-                .background(Color("DarkGreen").brightness(0.05))
+                .appHeaderBackground(isEmbedded: true)
 
                 ScrollView {
                     VStack(spacing: 0) {

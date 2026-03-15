@@ -260,10 +260,12 @@ struct PageMultilingualView: View {
                 settingsManager.saveMultilingualSteps()
             }
             .environmentObject(settingsManager)
+            .sheetFullScreen()
         }
         .sheet(isPresented: $showTemplatesSheet) {
             PageMultilingualTemplatesView()
                 .environmentObject(settingsManager)
+                .sheetFullScreen()
         }
         .onAppear {
             settingsManager.isMultilingualReadingActive = false

@@ -24,7 +24,11 @@ func appHeaderTopPadding(for topInset: CGFloat, extraTop: CGFloat = 0, extraTopS
 extension View {
     @ViewBuilder
     func sheetFullScreen() -> some View {
-        if #available(iOS 16.0, *) {
+        if #available(iOS 16.4, *) {
+            self.presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color("DarkGreen"))
+        } else if #available(iOS 16.0, *) {
             self.presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         } else {
@@ -58,8 +62,18 @@ extension View {
             self
                 .padding(.top, AppHeaderMetrics.embeddedTopInset)
                 .padding(.bottom, AppHeaderMetrics.embeddedBottomInset)
-                .background(Color("DarkGreen").brightness(0.05))
-                .clipShape(TopRoundedRectangle(radius: cornerRadius))
+                .background(
+                    TopRoundedRectangle(radius: cornerRadius)
+                        .fill(Color("DarkGreen"))
+                        .overlay(
+                            TopRoundedRectangle(radius: cornerRadius)
+                                .fill(Color.white.opacity(0.03))
+                        )
+                        .overlay(
+                            TopRoundedRectangle(radius: cornerRadius)
+                                .stroke(Color("DarkGreen").opacity(0.8), lineWidth: 1)
+                        )
+                )
         } else {
             self
                 .background(Color("DarkGreen").brightness(0.05))

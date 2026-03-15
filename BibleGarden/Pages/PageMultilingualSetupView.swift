@@ -282,10 +282,12 @@ struct PageMultilingualSetupView: View {
                 stepToEdit = nil
             }
             .environmentObject(settingsManager)
+            .sheetFullScreen()
         }
         .sheet(isPresented: $showTemplatesSheet) {
             PageMultilingualTemplatesView()
                 .environmentObject(settingsManager)
+                .sheetFullScreen()
         }
         .onAppear {
             settingsManager.isMultilingualReadingActive = false
