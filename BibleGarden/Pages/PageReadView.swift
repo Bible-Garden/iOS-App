@@ -55,6 +55,7 @@ struct PageReadView: View {
 
     @State var skipOnePause: Bool = false
     @State private var activeVerseIndex: Int = -1 // current position in textVerses (not reset by HTMLTextView)
+    @State private var debugHighlightedVerseID: String = ""
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -145,7 +146,13 @@ struct PageReadView: View {
                             scrollToVerse: $currentVerseNumber,
                             onScrollMetricsChanged: { _, isAtBottom in
                                 handleTextScroll(isAtBottom: isAtBottom)
-                            }
+                            },
+                            onHighlightedVerseChanged: { verseID in
+                                #if DEBUG
+                                debugHighlightedVerseID = verseID
+                                #endif
+                            },
+                            accessibilityIdentifier: "read-text-webview"
                         )
                             .mask(LinearGradient(
                                 gradient: Gradient(stops: [
@@ -254,14 +261,15 @@ struct PageReadView: View {
                 pageSetupTask?.cancel()
 
                 pageSetupTask = Task {
+                    self.audiopleer.onEndVerse = onEndVerse
+                    self.audiopleer.onStartVerse = onStartVerse
+                    self.audiopleer.smoothPauseLength = settingsManager.voiceMusic ? 0.3 : 0
+
                     await updateExcerpt(proxy: proxy)
                     guard !Task.isCancelled else { return }
                     guard self.pageLifecycleSessionID == pageSessionID else { return }
                     guard self.settingsManager.selectedMenuItem == .read else { return }
 
-                    self.audiopleer.onEndVerse = onEndVerse
-                    self.audiopleer.onStartVerse = onStartVerse
-                    self.audiopleer.smoothPauseLength = settingsManager.voiceMusic ? 0.3 : 0
                     audiopleer.setSpeed(speed: Float(self.settingsManager.currentSpeed))
                     
                     // Setup observer for finishing audio to auto-switch chapters
@@ -1139,6 +1147,8 @@ struct PageReadView: View {
                         .accessibilityIdentifier("read-playback-state")
                     Text("\(currentAudioVerseIndex)")
                         .accessibilityIdentifier("read-verse-counter")
+                    Text(debugHighlightedVerseID)
+                        .accessibilityIdentifier("read-highlighted-verse-id")
                 }
                 .font(.system(size: 1))
                 .foregroundStyle(.clear)

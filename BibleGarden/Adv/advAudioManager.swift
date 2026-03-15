@@ -140,6 +140,7 @@ class PlayerDurationObserver {
 // MARK: PlayerModel
 
 class PlayerModel: ObservableObject {
+    private static let boundaryObserverTimescale: CMTimeScale = 600
     
     enum PlaybackState: Int {
         case waitingForSelection
@@ -254,7 +255,17 @@ class PlayerModel: ObservableObject {
         timeObserver.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] time in
-                self?.currentTime = time
+                guard let self = self else { return }
+                self.currentTime = time
+
+                // Boundary observers are not fully reliable with streamed audio.
+                // Keep verse tracking in sync from periodic time updates as a fallback.
+                switch self.state {
+                case .playing, .waitingForPause:
+                    self.findAndSetCurrentVerseIndex()
+                default:
+                    break
+                }
             }
             .store(in: &cancellables)
         
@@ -508,9 +519,15 @@ class PlayerModel: ObservableObject {
         
         for (index, verse) in audioVerses.enumerated() {
             let beginSeconds = adjustedVerseBegin(at: index)
-            let verseBeginTime = CMTime(seconds: beginSeconds, preferredTimescale: 10)
+            let verseBeginTime = CMTime(
+                seconds: beginSeconds,
+                preferredTimescale: Self.boundaryObserverTimescale
+            )
             timesBegin.append(NSValue(time: verseBeginTime))
-            let verseEndTime = CMTime(seconds: verse.end, preferredTimescale: 10)
+            let verseEndTime = CMTime(
+                seconds: verse.end,
+                preferredTimescale: Self.boundaryObserverTimescale
+            )
             timesEnd.append(NSValue(time: verseEndTime))
         }
         

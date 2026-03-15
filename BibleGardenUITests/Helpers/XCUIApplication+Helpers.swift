@@ -43,6 +43,28 @@ extension XCUIApplication {
         return waitForLabel(element: stateLabel, toBe: state, timeout: timeout)
     }
 
+    func waitForReadHighlightedVerse(_ verseID: String, timeout: TimeInterval = 10) -> Bool {
+        let webView = webViews.firstMatch
+        if webView.waitForExistence(timeout: 3) {
+            return waitForValue(element: webView, toBe: verseID, timeout: timeout)
+        }
+
+        let label = staticTexts["read-highlighted-verse-id"]
+        guard label.waitForExistence(timeout: 3) else { return false }
+        return waitForLabel(element: label, toBe: verseID, timeout: timeout)
+    }
+
+    func readHighlightedVerseID() -> String? {
+        let webView = webViews.firstMatch
+        if webView.waitForExistence(timeout: 3) {
+            return webView.value as? String
+        }
+
+        let label = staticTexts["read-highlighted-verse-id"]
+        guard label.waitForExistence(timeout: 3) else { return nil }
+        return label.label
+    }
+
     // MARK: - Text content
 
     /// Find the reading page text content (HTMLTextView wraps WKWebView,
@@ -73,9 +95,23 @@ extension XCUIApplication {
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
+    /// Wait for an element's value to change from a known value
+    func waitForValueChange(element: XCUIElement, from oldValue: String, timeout: TimeInterval = 10) -> Bool {
+        let predicate = NSPredicate(format: "value != %@", oldValue)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
     /// Wait for an element's label to equal a specific value
     func waitForLabel(element: XCUIElement, toBe label: String, timeout: TimeInterval = 10) -> Bool {
         let predicate = NSPredicate(format: "label == %@", label)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    /// Wait for an element's value to equal a specific value
+    func waitForValue(element: XCUIElement, toBe value: String, timeout: TimeInterval = 10) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", value)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }

@@ -290,6 +290,61 @@ final class ClassicReadingTests: XCTestCase {
         playPause.tap() // stop
     }
 
+    // #9a — Запускаем воспроизведение, ждём переход со 1-го стиха на следующий.
+    // Результат: фактическая подсветка стиха внутри HTML/WKWebView уходит с verse-1.
+    @MainActor
+    func testPlaybackAdvancesHighlightedVerse() {
+        waitForAudioReady()
+
+        let playPause = app.buttons["read-play-pause"]
+        let speedButton = app.buttons["read-speed"]
+        let timeCurrent = app.staticTexts["read-time-current"]
+        let verseCounter = app.staticTexts["read-verse-counter"]
+        let highlightedVerse = app.webViews.firstMatch
+
+        XCTAssertTrue(speedButton.waitForExistence(timeout: 3), "Speed button should exist")
+        XCTAssertTrue(timeCurrent.waitForExistence(timeout: 3), "Current time label should exist")
+        XCTAssertTrue(verseCounter.waitForExistence(timeout: 3), "Verse counter should exist")
+        XCTAssertTrue(highlightedVerse.waitForExistence(timeout: 3), "Highlighted verse debug web view should exist")
+
+        for _ in 0..<5 { speedButton.tap() } // 1.0 -> 2.0
+
+        playPause.tap()
+        XCTAssertTrue(waitForPlaybackState("playing"), "Playback should start")
+        XCTAssertTrue(
+            app.waitForLabelChange(element: timeCurrent, from: "00:00", timeout: 10),
+            "Playback time should advance while audio is playing"
+        )
+
+        XCTAssertTrue(
+            app.waitForValueChange(element: highlightedVerse, from: "", timeout: 10),
+            "Some verse should become highlighted when playback starts"
+        )
+        let firstHighlightedVerse = app.readHighlightedVerseID() ?? ""
+        XCTAssertFalse(firstHighlightedVerse.isEmpty, "Highlighted verse id should not stay empty after playback starts")
+
+        var counterAtFirstHighlight = verseCounter.label
+        if counterAtFirstHighlight == "-1" {
+            XCTAssertTrue(
+                app.waitForLabelChange(element: verseCounter, from: "-1", timeout: 10),
+                "Verse counter should leave the initial idle value once playback begins"
+            )
+            counterAtFirstHighlight = verseCounter.label
+        }
+
+        XCTAssertTrue(
+            app.waitForLabelChange(element: verseCounter, from: counterAtFirstHighlight, timeout: 30),
+            "Verse counter should advance to the next verse during playback"
+        )
+
+        XCTAssertTrue(
+            app.waitForValueChange(element: highlightedVerse, from: firstHighlightedVerse, timeout: 10),
+            "Highlighted verse should move when the next verse starts"
+        )
+
+        playPause.tap() // stop
+    }
+
     // #10 — Во время воспроизведения нажимаем «следующий стих».
     // Результат: счётчик стиха увеличился.
     @MainActor

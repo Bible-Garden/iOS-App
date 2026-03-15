@@ -3,35 +3,11 @@ import WebKit
 
 struct HTMLTextView: UIViewRepresentable {
     let htmlContent: String
-    let jsTemplate = """
-        // Remove highlight class from the previous verse
-        var previous = document.querySelector('.highlighted-verse');
-        if (previous) {
-            previous.classList.remove('highlighted-verse');
-        }
-    
-        // Scroll to the current verse
-        var target = document.getElementById('{elementId}');
-        if (target) {
-             // Directly scroll the verse/element into view to ensure it is visible,
-             // regardless of how large the parent unit is.
-             // We position it at 1/5 of the screen height to account for the bottom panel.
-             var headerOffset = window.innerHeight / 5;
-             var elementPosition = target.getBoundingClientRect().top;
-             var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-             
-             window.scrollTo({
-                  top: offsetPosition,
-                  behavior: "smooth"
-             });
-    
-            // Add highlight class to the current verse element
-            target.classList.add('highlighted-verse');
-        }
-    """
     @Binding var scrollToVerse: Int?
     var isScrollEnabled: Bool = true
     var onScrollMetricsChanged: ((Double, Bool) -> Void)? = nil
+    var onHighlightedVerseChanged: ((String) -> Void)? = nil
+    var accessibilityIdentifier: String? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -51,6 +27,10 @@ struct HTMLTextView: UIViewRepresentable {
         webView.scrollView.backgroundColor = UIColor.clear
 
         webView.loadHTMLString(htmlContent, baseURL: nil)
+        if let accessibilityIdentifier {
+            webView.accessibilityIdentifier = accessibilityIdentifier
+        }
+        webView.accessibilityValue = ""
         
         webView.scrollView.delaysContentTouches = false
         webView.scrollView.delegate = context.coordinator
@@ -65,17 +45,44 @@ struct HTMLTextView: UIViewRepresentable {
         coordinator.detach()
     }
 
+    private func highlightScript(for elementID: String) -> String {
+        """
+        (function() {
+            var previous = document.querySelector('.highlighted-verse');
+            if (previous) {
+                previous.classList.remove('highlighted-verse');
+            }
+
+            var target = document.getElementById('\(elementID)');
+            if (!target) {
+                return '';
+            }
+
+            // Directly scroll the verse/element into view to ensure it is visible,
+            // regardless of how large the parent unit is.
+            // We position it at 1/5 of the screen height to account for the bottom panel.
+            var headerOffset = window.innerHeight / 5;
+            var elementPosition = target.getBoundingClientRect().top;
+            var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+            window.scrollTo({
+                top: offsetPosition,
+                behavior: 'smooth'
+            });
+
+            target.classList.add('highlighted-verse');
+            return target.id || '';
+        })();
+        """
+    }
+
     func updateUIView(_ webView: WKWebView, context: Context) {
         context.coordinator.parent = self
         // If scrollToVerse changes and webView is loaded, execute JavaScript
         if let verse = scrollToVerse, context.coordinator.webViewLoaded {
-            //print("updateUIView \(verse)")
-            if verse <= 0 {
-                webView.evaluateJavaScript(jsTemplate.replacingOccurrences(of: "{elementId}", with: "top"), completionHandler: nil)
-            }
-            else {
-                webView.evaluateJavaScript(jsTemplate.replacingOccurrences(of: "{elementId}", with: "verse-\(verse)"), completionHandler: nil)
-            }
+            let elementID = verse <= 0 ? "top" : "verse-\(verse)"
+            context.coordinator.applyHighlight(elementID: elementID, in: webView)
+
             // Reset scrollToVerse to nil to prevent repeated scrolling
             DispatchQueue.main.async {
                 scrollToVerse = nil
@@ -89,6 +96,12 @@ struct HTMLTextView: UIViewRepresentable {
         weak var webView: WKWebView?
         private var lastSentProgress: Double = -1
         private var lastSentAtBottom: Bool = false
+        private let highlightedVerseQuery = """
+            (function() {
+                var current = document.querySelector('.highlighted-verse');
+                return current ? current.id : '';
+            })();
+            """
 
         init(_ parent: HTMLTextView) {
             self.parent = parent
@@ -106,23 +119,50 @@ struct HTMLTextView: UIViewRepresentable {
 
             // If scrollToVerse is set, execute JavaScript to scroll
             if let verse = parent.scrollToVerse {
-                webView.evaluateJavaScript(parent.jsTemplate.replacingOccurrences(of: "{verse}", with: "\(verse)"), completionHandler: nil)
+                let elementID = verse <= 0 ? "top" : "verse-\(verse)"
+                applyHighlight(elementID: elementID, in: webView)
 
                 DispatchQueue.main.async {
                     self.parent?.scrollToVerse = nil
                 }
             }
 
+            reportHighlightedVerse(from: webView)
+
             // Send initial scroll metrics even if user does not scroll.
             // This is important for short chapters that fully fit on screen.
             sendScrollMetrics(from: webView.scrollView, force: true)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self, weak webView] in
                 guard let self = self, let webView = webView, self.parent != nil else { return }
+                self.reportHighlightedVerse(from: webView)
                 self.sendScrollMetrics(from: webView.scrollView, force: true)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self, weak webView] in
                 guard let self = self, let webView = webView, self.parent != nil else { return }
+                self.reportHighlightedVerse(from: webView)
                 self.sendScrollMetrics(from: webView.scrollView, force: true)
+            }
+        }
+
+        func reportHighlightedVerse(from webView: WKWebView) {
+            guard let parent = parent else { return }
+            webView.evaluateJavaScript(highlightedVerseQuery) { result, _ in
+                let verseID = (result as? String) ?? ""
+                DispatchQueue.main.async {
+                    webView.accessibilityValue = verseID
+                    parent.onHighlightedVerseChanged?(verseID)
+                }
+            }
+        }
+
+        func applyHighlight(elementID: String, in webView: WKWebView) {
+            guard let parent = parent else { return }
+            webView.evaluateJavaScript(parent.highlightScript(for: elementID)) { result, _ in
+                let verseID = (result as? String) ?? ""
+                DispatchQueue.main.async {
+                    webView.accessibilityValue = verseID
+                    parent.onHighlightedVerseChanged?(verseID)
+                }
             }
         }
 
