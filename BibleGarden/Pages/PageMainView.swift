@@ -7,27 +7,24 @@ struct PageMainView: View {
     @State private var booksLoaded = false
     
     var body: some View {
-        GeometryReader { geometry in
-            let containerSize = geometry.size
+        ZStack {
+            Image("Forest")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
 
-            ZStack {
-                // Background layer
-                Image("Forest")
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: containerSize.width, height: containerSize.height)
-                    .clipped()
-                
+            VStack(spacing: 0) {
+                AppHeaderBar {
+                    MenuButtonView()
+                        .environmentObject(settingsManager)
+                } center: {
+                    HeaderPlaceholder(width: 1)
+                } trailing: {
+                    HeaderPlaceholder()
+                }
+
                 VStack(spacing: 20) {
-                    HStack {
-                        MenuButtonView()
-                            .environmentObject(settingsManager)
-                        Spacer()
-                    }
-                    .headerPadding(extraTop: 30, extraTopSmall: 10)
-
                     Spacer().frame(height: 28)
-                    // Localized title
                     Text("page.main.header".localized)
                         .font(.system(size: 50, weight: .black, design: .rounded))
                         .foregroundColor(.white)
@@ -35,13 +32,11 @@ struct PageMainView: View {
                         .lineLimit(1)
                         .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
                     
-                    // Dual Mode Selection
                     VStack(spacing: 15) {
-                        // Option 2: Immersion (Multilingual Study)
                         MainMenuCard(
                             title: "page.main.multilingual.title".localized,
                             subtitle: "page.main.multilingual.subtitle".localized,
-                            icon: "translate", // Headphones for audio/study
+                            icon: "translate",
                             color: Color("ForestGreen")
                         ) {
                             withAnimation(.easeInOut(duration: 0.25)) {
@@ -50,11 +45,10 @@ struct PageMainView: View {
                         }
                         .accessibilityIdentifier("card-multilingual")
 
-                        // Option 1: Silence (Classic Reading)
                         MainMenuCard(
                             title: "page.main.classic.title".localized,
                             subtitle: "page.main.classic.subtitle".localized,
-                            icon: "book.fill", // Classic book icon
+                            icon: "book.fill",
                             color: Color("ForestGreen")
                         ) {
                             withAnimation(.easeInOut(duration: 0.25)) {
@@ -64,18 +58,14 @@ struct PageMainView: View {
                         .accessibilityIdentifier("card-classic-reading")
                     }
 
-                    // Push remaining content upward
                     Spacer()
                 }
                 .padding(.horizontal, globalBasePadding)
-                .padding(.vertical, 20)
+                .padding(.bottom, 20)
                 
-                // Reading progress card near bottom
                 progressCardView()
             }
-            .frame(width: containerSize.width, height: containerSize.height)
         }
-        .ignoresSafeArea()
         .onAppear {
             loadBooksIfNeeded()
         }

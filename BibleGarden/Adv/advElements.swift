@@ -1,5 +1,75 @@
 import SwiftUI
 
+struct HeaderPlaceholder: View {
+    var width: CGFloat = AppHeaderMetrics.controlSize
+
+    var body: some View {
+        Color.clear
+            .frame(width: width, height: AppHeaderMetrics.controlSize)
+    }
+}
+
+struct CloseHeaderButton: View {
+    let action: () -> Void
+    var foregroundColor: Color = .white.opacity(0.7)
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.title.weight(.light))
+                .frame(width: AppHeaderMetrics.controlSize, height: AppHeaderMetrics.controlSize)
+        }
+        .foregroundColor(foregroundColor)
+    }
+}
+
+struct AppHeaderBar<Leading: View, Center: View, Trailing: View>: View {
+    let extraTop: CGFloat
+    let extraTopSmall: CGFloat
+    let leadingWidth: CGFloat
+    let trailingWidth: CGFloat
+    @ViewBuilder let leading: () -> Leading
+    @ViewBuilder let center: () -> Center
+    @ViewBuilder let trailing: () -> Trailing
+
+    init(
+        extraTop: CGFloat = 0,
+        extraTopSmall: CGFloat = 0,
+        leadingWidth: CGFloat = AppHeaderMetrics.controlSize,
+        trailingWidth: CGFloat = AppHeaderMetrics.controlSize,
+        @ViewBuilder leading: @escaping () -> Leading,
+        @ViewBuilder center: @escaping () -> Center,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
+        self.extraTop = extraTop
+        self.extraTopSmall = extraTopSmall
+        self.leadingWidth = leadingWidth
+        self.trailingWidth = trailingWidth
+        self.leading = leading
+        self.center = center
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        ZStack {
+            center()
+                .frame(maxWidth: .infinity)
+
+            HStack(spacing: 0) {
+                leading()
+                    .frame(width: leadingWidth, height: AppHeaderMetrics.controlSize, alignment: .leading)
+
+                Spacer(minLength: 0)
+
+                trailing()
+                    .frame(width: trailingWidth, height: AppHeaderMetrics.controlSize, alignment: .trailing)
+            }
+        }
+        .padding(.horizontal, globalBasePadding)
+        .headerPadding(extraTop: extraTop, extraTopSmall: extraTopSmall)
+    }
+}
+
 // Nice toggle buttons
 @ViewBuilder 
 func viewSegmentedButtons(arr: [String], selIndex: Int, baseColor: Color, bgColor: Color, closure:@escaping (_ selectedIndex: Int) -> Void) -> some View {

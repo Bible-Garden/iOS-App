@@ -13,87 +13,85 @@ struct PageProgressView: View {
     var body: some View {
         ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                VStack(spacing: 20) {
-                    // MARK: Header
-                    HStack {
-                        MenuButtonView()
-                            .environmentObject(settingsManager)
-                        Spacer()
-                        Text("page.progress.title".localized)
-                            .fontWeight(.bold)
+                // MARK: Header
+                AppHeaderBar {
+                    MenuButtonView()
+                        .environmentObject(settingsManager)
+                } center: {
+                    Text("page.progress.title".localized)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                } trailing: {
+                    Button {
+                        showSettingsSheet = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
                             .foregroundColor(.white)
-                        Spacer()
-                        Button {
-                            showSettingsSheet = true
-                        } label: {
-                            Image(systemName: "gearshape.fill")
-                                .foregroundColor(.white)
-                                .font(.system(size: 26))
-                        }
+                            .font(.system(size: 26))
                     }
-                    .headerPadding()
+                }
 
-                    if isLoading {
-                        Spacer()
-                        ProgressView()
-                            .tint(.white)
-                        Spacer()
-                    } else if !booksInfo.isEmpty {
-                        ScrollView {
-                            VStack(spacing: 20) {
-                                // MARK: Overall stats
-                                let totalProgress = settingsManager.getTotalProgress(books: booksInfo)
+                if isLoading {
+                    Spacer()
+                    ProgressView()
+                        .tint(.white)
+                    Spacer()
+                } else if !booksInfo.isEmpty {
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            // MARK: Overall stats
+                            let totalProgress = settingsManager.getTotalProgress(books: booksInfo)
+                            
+                            VStack(spacing: 10) {
+                                Text("progress.total".localized)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white)
+                                    .accessibilityIdentifier("progress-total")
                                 
-                                VStack(spacing: 10) {
-                                    Text("progress.total".localized)
-                                        .font(.subheadline)
-                                        .foregroundColor(.white)
-                                        .accessibilityIdentifier("progress-total")
-                                    
-                                    // Progress bar with overlayed percent
-                                    ZStack {
-                                        // Progress bar background
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(Color.white.opacity(0.3))
-                                            .frame(height: 24)
-                                        
-                                        GeometryReader { geometry in
-                                            let progressWidth = geometry.size.width * CGFloat(totalProgress.read) / CGFloat(totalProgress.total)
-                                            let progressPercent = CGFloat(totalProgress.read) / CGFloat(totalProgress.total)
-                                            
-                                            // Green progress fill
-                                            HStack(spacing: 0) {
-                                                LinearGradient(
-                                                    gradient: Gradient(colors: [Color.green.opacity(0.8), Color.green]),
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
-                                                )
-                                                .frame(width: progressWidth, height: 24)
-                                                
-                                                Spacer(minLength: 0)
-                                            }
-                                            .mask(
-                                                Group {
-                                                    if progressPercent > 0.98 {
-                                                        RoundedRectangle(cornerRadius: 6)
-                                                    } else {
-                                                        LeftRoundedRectangle(radius: 6)
-                                                    }
-                                                }
-                                            )
-                                        }
+                                // Progress bar with overlayed percent
+                                ZStack {
+                                    // Progress bar background
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.white.opacity(0.3))
                                         .frame(height: 24)
+                                    
+                                    GeometryReader { geometry in
+                                        let progressWidth = geometry.size.width * CGFloat(totalProgress.read) / CGFloat(totalProgress.total)
+                                        let progressPercent = CGFloat(totalProgress.read) / CGFloat(totalProgress.total)
                                         
-                                        // Percentage label on top of the bar
-                                        Text(String(format: "%.1f%%", Double(totalProgress.read) / Double(totalProgress.total) * 100))
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.white)
+                                        // Green progress fill
+                                        HStack(spacing: 0) {
+                                            LinearGradient(
+                                                gradient: Gradient(colors: [Color.green.opacity(0.8), Color.green]),
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                            .frame(width: progressWidth, height: 24)
+                                            
+                                            Spacer(minLength: 0)
+                                        }
+                                        .mask(
+                                            Group {
+                                                if progressPercent > 0.98 {
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                } else {
+                                                    LeftRoundedRectangle(radius: 6)
+                                                }
+                                            }
+                                        )
                                     }
+                                    .frame(height: 24)
+                                    
+                                    // Percentage label on top of the bar
+                                    Text(String(format: "%.1f%%", Double(totalProgress.read) / Double(totalProgress.total) * 100))
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
                                 }
-                                
-                                // MARK: Progress by books
-                                VStack(alignment: .leading, spacing: 12) {
+                            }
+                            
+                            // MARK: Progress by books
+                            VStack(alignment: .leading, spacing: 12) {
                                     // Books currently in progress
                                     let inProgressBooks = booksInfo.filter { book in
                                         let progress = settingsManager.getBookProgress(book: book.alias, totalChapters: book.chapters_count)
@@ -147,12 +145,13 @@ struct PageProgressView: View {
                                             bookProgressCard(book: book)
                                         }
                                     }
-                                }
                             }
                         }
+                        .padding(.horizontal, globalBasePadding)
+                        .padding(.top, 20)
+                        .padding(.bottom, 20)
                     }
                 }
-                .padding(.horizontal, globalBasePadding)
             }
             .background(Color("DarkGreen"))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -321,29 +320,17 @@ private struct ProgressSettingsSheet: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ZStack {
+                AppHeaderBar {
+                    CloseHeaderButton {
+                        dismiss()
+                    }
+                } center: {
                     Text("progress.settings.title".localized)
                         .font(.headline)
                         .foregroundColor(.white)
-
-                    HStack {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.title3.weight(.light))
-                                .frame(width: 32, height: 32)
-                        }
-                        .foregroundColor(.white.opacity(0.7))
-
-                        Spacer()
-
-                        Color.clear
-                            .frame(width: 32, height: 32)
-                    }
+                } trailing: {
+                    HeaderPlaceholder()
                 }
-                .padding(.horizontal, globalBasePadding)
-                .padding(.vertical, 12)
                 .background(Color("DarkGreen").brightness(0.05))
 
                 ScrollView {

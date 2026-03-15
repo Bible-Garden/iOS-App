@@ -66,35 +66,32 @@ struct PageReadSettingsView: View {
         ZStack {
             VStack(spacing: 0) {
                 // MARK: Header
-                ZStack {
+                AppHeaderBar(trailingWidth: showFromRead ? 64 : AppHeaderMetrics.controlSize) {
+                    if !showFromRead {
+                        MenuButtonView()
+                            .environmentObject(settingsManager)
+                    } else {
+                        HeaderPlaceholder()
+                    }
+                } center: {
                     Text("page.settings.title".localized)
                         .font(.headline)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
-
-                    HStack {
-                        if !showFromRead {
-                            MenuButtonView()
-                                .environmentObject(settingsManager)
-                                .frame(width: 32, height: 32)
+                } trailing: {
+                    if showFromRead {
+                        Button {
+                            showFromRead = false
+                        } label: {
+                            Text("settings.save_choice".localized)
+                                .fontWeight(.bold)
+                                .foregroundColor(Color("Mustard"))
                         }
-
-                        Spacer()
-
-                        if showFromRead {
-                            Button {
-                                showFromRead = false
-                            } label: {
-                                Text("settings.save_choice".localized)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(Color("Mustard"))
-                            }
-                            .accessibilityIdentifier("settings-close")
-                        }
+                        .accessibilityIdentifier("settings-close")
+                    } else {
+                        HeaderPlaceholder()
                     }
                 }
-                .padding(.horizontal, globalBasePadding)
-                .padding(.vertical, 12)
                 .background(Color("DarkGreen").brightness(0.05))
                 .clipShape(
                     TopRoundedRectangle(radius: showFromRead ? 22 : 0)

@@ -63,13 +63,10 @@ struct PageReadView: View {
                 VStack(spacing: 0) {
 
                     // MARK: Header
-                    HStack(alignment: .center) {
+                    AppHeaderBar {
                         MenuButtonView()
                             .environmentObject(settingsManager)
-
-                        Spacer()
-
-                        // Title that opens chapter selection
+                    } center: {
                         Button {
                             withAnimation(Animation.easeInOut(duration: 1)) {
                                 oldExcerpt = settingsManager.currentExcerpt
@@ -86,10 +83,7 @@ struct PageReadView: View {
                             }
                         }
                         .accessibilityIdentifier("read-chapter-title")
-
-                        Spacer()
-
-                        // Settings button
+                    } trailing: {
                         Button {
                             openSetupFromRead()
                         } label: {
@@ -99,8 +93,6 @@ struct PageReadView: View {
                         .accessibilityIdentifier("read-settings-button")
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, globalBasePadding)
-                    .headerPadding()
 
                     // MARK: Text content
                     if isTextLoading {

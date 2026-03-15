@@ -24,38 +24,24 @@ struct PageSelectView: View {
                 
                 VStack(spacing: 0) {
                     // MARK: Header
-                    ZStack {
+                    AppHeaderBar {
+                        if showFromRead {
+                            CloseHeaderButton {
+                                showFromRead = false
+                            }
+                            .accessibilityIdentifier("select-close")
+                        } else {
+                            MenuButtonView()
+                                .environmentObject(settingsManager)
+                        }
+                    } center: {
                         Text("page.select.title".localized)
                             .font(.headline)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
-
-                        HStack {
-                            if showFromRead {
-                                Button {
-                                    showFromRead = false
-                                } label: {
-                                    Image(systemName: "xmark")
-                                        .font(.title3.weight(.light))
-                                        .frame(width: 32, height: 32)
-                                }
-                                .foregroundColor(Color.white.opacity(0.7))
-                                .accessibilityIdentifier("select-close")
-                            }
-                            else {
-                                MenuButtonView()
-                                    .environmentObject(settingsManager)
-                                    .frame(width: 32, height: 32)
-                            }
-
-                            Spacer()
-
-                            Color.clear
-                                .frame(width: 32, height: 32)
-                        }
+                    } trailing: {
+                        HeaderPlaceholder()
                     }
-                    .padding(.horizontal, globalBasePadding)
-                    .headerPadding()
                     .background(Color("DarkGreen").brightness(0.05))
                     .padding(.bottom, 10)
                     

@@ -91,12 +91,10 @@ struct PageMultilingualReadView: View {
 
             VStack(spacing: 0) {
                 // MARK: Header
-                HStack(alignment: .center) {
+                AppHeaderBar {
                     MenuButtonView()
                         .environmentObject(settingsManager)
-                    
-                    Spacer()
-                    
+                } center: {
                     Button {
                         withAnimation(Animation.easeInOut(duration: 1)) {
                             oldExcerpt = settingsManager.currentExcerpt
@@ -114,10 +112,7 @@ struct PageMultilingualReadView: View {
                         }
                     }
                     .accessibilityIdentifier("multi-chapter-title")
-                    
-                    Spacer()
-                    
-                    // Back to config
+                } trailing: {
                     Button {
                         settingsManager.isMultilingualReadingActive = false
                         withAnimation(.easeInOut(duration: 0.25)) {
@@ -130,8 +125,6 @@ struct PageMultilingualReadView: View {
                     }
                     .accessibilityIdentifier("multi-config-button")
                 }
-                .padding(.horizontal, globalBasePadding)
-                .headerPadding()
                 
                 // MARK: Content
                 if isLoading {

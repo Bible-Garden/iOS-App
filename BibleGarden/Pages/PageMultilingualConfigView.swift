@@ -67,36 +67,25 @@ struct PageMultilingualConfigView: View {
             
             VStack(spacing: 0) {
                 // Header
-                ZStack {
+                AppHeaderBar(trailingWidth: 64) {
+                    CloseHeaderButton {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                } center: {
                     Text("multilingual.config.title".localized) // Localized
                         .font(.headline)
                         .foregroundColor(.white)
-
-                    HStack {
-                        Button {
-                            presentationMode.wrappedValue.dismiss()
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.title3.weight(.light))
-                                .frame(width: 32, height: 32)
-                        }
-                        .foregroundColor(Color.white.opacity(0.7))
-
-                        Spacer()
-
-                        Button {
-                            saveStep()
-                        } label: {
-                            Text(saveButtonTitle)
-                                .fontWeight(.bold)
-                        }
-                        .foregroundColor(canSave ? Color("Mustard") : Color.gray)
-                        .disabled(!canSave)
-                        .accessibilityIdentifier("multi-config-save")
+                } trailing: {
+                    Button {
+                        saveStep()
+                    } label: {
+                        Text(saveButtonTitle)
+                            .fontWeight(.bold)
                     }
+                    .foregroundColor(canSave ? Color("Mustard") : Color.gray)
+                    .disabled(!canSave)
+                    .accessibilityIdentifier("multi-config-save")
                 }
-                .padding(.horizontal, globalBasePadding)
-                .padding(.vertical, 12)
                 .background(Color("DarkGreen").brightness(0.05))
                 
                 ScrollView {

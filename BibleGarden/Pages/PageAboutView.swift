@@ -15,31 +15,23 @@ struct PageAboutView: View {
         ZStack {
             VStack(spacing: 0) {
                 // MARK: Header
-                HStack {
+                AppHeaderBar {
                     if showFromRead {
-                        Button {
+                        CloseHeaderButton {
                             showFromRead = false
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.title.weight(.light))
                         }
-                        .foregroundColor(Color.white.opacity(0.5))
                     }
                     else {
                         MenuButtonView()
                             .environmentObject(settingsManager)
                     }
-                    Spacer()
-
+                } center: {
                     Text("page.contacts.title".localized)
                         .fontWeight(.bold)
-                        .padding(.trailing, 32) // compensate menu so title stays centered
                         .foregroundColor(.white)
-
-                    Spacer()
+                } trailing: {
+                    HeaderPlaceholder()
                 }
-                .padding(.horizontal, globalBasePadding)
-                .headerPadding()
 
                 ScrollView {
                     VStack(spacing: 20) {

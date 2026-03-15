@@ -23,6 +23,7 @@ struct MenuView: View {
         GeometryReader { geometry in
             let containerSize = geometry.size
             let safeArea = geometry.safeAreaInsets
+            let topInset = max(appWindowTopInset(), safeArea.top)
 
             ZStack {
                 // Blur View
@@ -37,15 +38,11 @@ struct MenuView: View {
                 VStack(alignment: .leading, spacing: containerSize.height < 750 ? 20 : 35) {
 
                     // MARK: Close Button
-                    Button {
+                    CloseHeaderButton(action: {
                         withAnimation(.spring()) {
                             settingsManager.showMenu = false
                         }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.title.weight(.light))
-                    }
-                    .foregroundColor(Color.white.opacity(0.5))
+                    }, foregroundColor: Color.white.opacity(0.5))
 
                     // MARK: Menu Items
 
@@ -190,10 +187,10 @@ struct MenuView: View {
                     Spacer(minLength: 10)
                 }
                 .padding(.trailing, 120)
-                .padding()
+                .padding(.horizontal, 16)
                 .padding(.leading, 6)
-                .padding(.top, safeArea.top > 40 ? max(safeArea.top - 16, 0) : max(safeArea.top, 0))
-                .padding(.bottom, safeArea.bottom)
+                .padding(.top, topInset + appHeaderTopPadding(for: topInset))
+                .padding(.bottom, max(safeArea.bottom, 16))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: min(containerSize.width, 500))
@@ -304,32 +301,20 @@ private struct InterfaceLanguageSheetView: View {
                 .ignoresSafeArea()
                 .accessibilityIdentifier("language-sheet")
 
-            VStack(spacing: 0) {
-                ZStack {
+        VStack(spacing: 0) {
+                AppHeaderBar {
+                    CloseHeaderButton {
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("language-close")
+                } center: {
                     Text("settings.language".localized)
                         .font(.headline)
                         .fontWeight(.bold)
                         .foregroundColor(.white)
-
-                    HStack {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.title3.weight(.light))
-                                .frame(width: 32, height: 32)
-                        }
-                        .foregroundColor(.white.opacity(0.7))
-                        .accessibilityIdentifier("language-close")
-
-                        Spacer()
-
-                        Color.clear
-                            .frame(width: 32, height: 32)
-                    }
+                } trailing: {
+                    HeaderPlaceholder()
                 }
-                .padding(.horizontal, globalBasePadding)
-                .padding(.vertical, 12)
                 .background(Color("DarkGreen").brightness(0.05))
 
                 VStack(alignment: .leading, spacing: 14) {
@@ -408,7 +393,7 @@ struct MenuButtonView: View {
             Image("Menu")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 32, height: 32)
+                .frame(width: AppHeaderMetrics.controlSize, height: AppHeaderMetrics.controlSize)
         }
         .accessibilityIdentifier("menu-button")
     }

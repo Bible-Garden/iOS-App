@@ -2,6 +2,22 @@ import SwiftUI
 
 // MARK: - iOS 15 Compatibility
 
+enum AppHeaderMetrics {
+    static let controlSize: CGFloat = 32
+    static let bottomPadding: CGFloat = 6
+}
+
+func appWindowTopInset() -> CGFloat {
+    (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
+        .windows.first?.safeAreaInsets.top ?? 0
+}
+
+func appHeaderTopPadding(for topInset: CGFloat, extraTop: CGFloat = 0, extraTopSmall: CGFloat = 0) -> CGFloat {
+    let basePadding: CGFloat = topInset > 40 ? 0 : 10
+    let extra: CGFloat = topInset > 40 ? extraTop : extraTopSmall
+    return basePadding + extra
+}
+
 extension View {
     @ViewBuilder
     func sheetFullScreen() -> some View {
@@ -19,13 +35,9 @@ extension View {
     ///   - extraTop: additional top padding for large-safe-area devices (iPhone with notch), default 0
     ///   - extraTopSmall: additional top padding for small-safe-area devices (iPad, iPhone SE), default 0
     func headerPadding(extraTop: CGFloat = 0, extraTopSmall: CGFloat = 0) -> some View {
-        let topInset = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
-            .windows.first?.safeAreaInsets.top ?? 0
-        let basePadding: CGFloat = topInset > 40 ? 0 : 10
-        let extra: CGFloat = topInset > 40 ? extraTop : extraTopSmall
         return self
-            .padding(.top, basePadding + extra)
-            .padding(.bottom, 6)
+            .padding(.top, appHeaderTopPadding(for: appWindowTopInset(), extraTop: extraTop, extraTopSmall: extraTopSmall))
+            .padding(.bottom, AppHeaderMetrics.bottomPadding)
     }
 
     @ViewBuilder

@@ -34,12 +34,10 @@ struct PageMultilingualView: View {
             
             VStack(spacing: 0) {
                 // MARK: Header
-                HStack {
+                AppHeaderBar {
                     MenuButtonView()
                         .environmentObject(settingsManager)
-                    
-                    Spacer()
-                    
+                } center: {
                     VStack(spacing: 2) {
                         Text("multilingual.title".localized) // Localized
                             .font(.headline)
@@ -50,9 +48,7 @@ struct PageMultilingualView: View {
                             .font(.caption)
                             .foregroundColor(Color("Mustard"))
                     }
-                    
-                    Spacer()
-                    
+                } trailing: {
                     Button {
                         showTemplatesSheet = true
                     } label: {
@@ -61,8 +57,6 @@ struct PageMultilingualView: View {
                             .foregroundColor(.white)
                     }
                 }
-                .padding(.horizontal, globalBasePadding)
-                .headerPadding()
                 
                 // MARK: Read By Picker
                 HStack {
