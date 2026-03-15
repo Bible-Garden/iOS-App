@@ -215,6 +215,7 @@ struct PageReadSettingsView: View {
                 }
                 .accessibilityIdentifier("settings-font-reset")
             }
+            .padding(.top, -16)
             
             Text("settings.font.example".localized)
                 .foregroundColor(.white.opacity(0.5))
