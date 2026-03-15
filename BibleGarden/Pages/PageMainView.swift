@@ -13,8 +13,9 @@ struct PageMainView: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
+                    .position(x: geo.size.width / 2, y: geo.size.height * (geo.size.width > geo.size.height ? 0.12 : 0.5))
             }
+            .clipped()
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
