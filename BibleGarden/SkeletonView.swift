@@ -416,126 +416,129 @@ struct SkeletonView: View {
     @State private var versionCheckData: Components.Schemas.VersionCheckModel? = nil
 
     var body: some View {
-        ZStack {
-            Color("DarkGreen")
-                .edgesIgnoringSafeArea(.all)
-            
-            if settingsManager.selectedMenuItem == .main {
-                PageMainView()
-                .environmentObject(settingsManager)
-                .transition(.opacity)
-            }
-
-            else if settingsManager.selectedMenuItem == .read {
-                PageReadView()
+        GeometryReader { geometry in
+            ZStack {
+                Color("DarkGreen")
+                    .edgesIgnoringSafeArea(.all)
+                
+                if settingsManager.selectedMenuItem == .main {
+                    PageMainView()
                     .environmentObject(settingsManager)
                     .transition(.opacity)
-            }
-
-            else if settingsManager.selectedMenuItem == .select {
-                PageSelectView(showFromRead: $showAsPartOfRead)
-                .environmentObject(settingsManager)
-                .transition(.opacity)
-            }
-
-            else if settingsManager.selectedMenuItem == .progress {
-                PageProgressView()
-                .environmentObject(settingsManager)
-                .transition(.opacity)
-            }
-
-            else if settingsManager.selectedMenuItem == .setup {
-                PageReadSettingsView(showFromRead: $showAsPartOfRead)
-                .environmentObject(settingsManager)
-                .transition(.opacity)
-            }
-
-            else if settingsManager.selectedMenuItem == .contacts {
-                PageAboutView()
-                .environmentObject(settingsManager)
-                .transition(.opacity)
-            }
-
-            else if settingsManager.selectedMenuItem == .multilingual {
-                PageMultilingualSetupView()
-                .environmentObject(settingsManager)
-                .transition(.opacity)
-            }
-
-            else if settingsManager.selectedMenuItem == .multilingualRead {
-                PageMultilingualReadView()
-                .environmentObject(settingsManager)
-                .transition(.opacity)
-            }
-            
-            /// menu overlay: tap outside to close
-            if settingsManager.showMenu {
-                Color.black.opacity(0.3)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring()) {
-                            settingsManager.showMenu = false
-                        }
-                    }
-            }
-
-            /// menu layer
-            MenuView()
-                .environmentObject(settingsManager)
-                .offset(x: settingsManager.showMenu ? 0 : -getRect().width)
-                .animation(.spring(), value: settingsManager.showMenu)
-                .id("menu_\(settingsManager.selectedMenuItem)_\(localizationManager.currentLanguage.rawValue)")
-
-            // Hard update — full-screen blocking overlay
-            if let data = versionCheckData, data.update_type == .hard {
-                Color("DarkGreen").ignoresSafeArea()
-                VStack(spacing: 20) {
-                    Spacer()
-                    Image(systemName: "arrow.up.circle")
-                        .font(.system(size: 60))
-                        .foregroundColor(.white.opacity(0.7))
-                    if let msg = data.message {
-                        Text(localizedMessage(msg))
-                            .font(.body)
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-                    Button {
-                        if let url = URL(string: data.store_url) {
-                            UIApplication.shared.open(url)
-                        }
-                    } label: {
-                        Text("update.go".localized)
-                            .fontWeight(.bold)
-                            .foregroundColor(Color("DarkGreen"))
-                            .padding(.horizontal, 40)
-                            .padding(.vertical, 12)
-                            .background(Color.white)
-                            .cornerRadius(10)
-                    }
-                    Spacer()
                 }
+
+                else if settingsManager.selectedMenuItem == .read {
+                    PageReadView()
+                        .environmentObject(settingsManager)
+                        .transition(.opacity)
+                }
+
+                else if settingsManager.selectedMenuItem == .select {
+                    PageSelectView(showFromRead: $showAsPartOfRead)
+                    .environmentObject(settingsManager)
+                    .transition(.opacity)
+                }
+
+                else if settingsManager.selectedMenuItem == .progress {
+                    PageProgressView()
+                    .environmentObject(settingsManager)
+                    .transition(.opacity)
+                }
+
+                else if settingsManager.selectedMenuItem == .setup {
+                    PageReadSettingsView(showFromRead: $showAsPartOfRead)
+                    .environmentObject(settingsManager)
+                    .transition(.opacity)
+                }
+
+                else if settingsManager.selectedMenuItem == .contacts {
+                    PageAboutView()
+                    .environmentObject(settingsManager)
+                    .transition(.opacity)
+                }
+
+                else if settingsManager.selectedMenuItem == .multilingual {
+                    PageMultilingualSetupView()
+                    .environmentObject(settingsManager)
+                    .transition(.opacity)
+                }
+
+                else if settingsManager.selectedMenuItem == .multilingualRead {
+                    PageMultilingualReadView()
+                    .environmentObject(settingsManager)
+                    .transition(.opacity)
+                }
+                
+                /// menu overlay: tap outside to close
+                if settingsManager.showMenu {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.spring()) {
+                                settingsManager.showMenu = false
+                            }
+                        }
+                }
+
+                /// menu layer
+                MenuView()
+                    .environmentObject(settingsManager)
+                    .offset(x: settingsManager.showMenu ? 0 : -geometry.size.width)
+                    .animation(.spring(), value: settingsManager.showMenu)
+                    .id("menu_\(settingsManager.selectedMenuItem)_\(localizationManager.currentLanguage.rawValue)")
+
+                // Hard update — full-screen blocking overlay
+                if let data = versionCheckData, data.update_type == .hard {
+                    Color("DarkGreen").ignoresSafeArea()
+                    VStack(spacing: 20) {
+                        Spacer()
+                        Image(systemName: "arrow.up.circle")
+                            .font(.system(size: 60))
+                            .foregroundColor(.white.opacity(0.7))
+                        if let msg = data.message {
+                            Text(localizedMessage(msg))
+                                .font(.body)
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+                        }
+                        Button {
+                            if let url = URL(string: data.store_url) {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            Text("update.go".localized)
+                                .fontWeight(.bold)
+                                .foregroundColor(Color("DarkGreen"))
+                                .padding(.horizontal, 40)
+                                .padding(.vertical, 12)
+                                .background(Color.white)
+                                .cornerRadius(10)
+                        }
+                        Spacer()
+                    }
+                }
+ 
+                #if DEBUG
+                VStack(spacing: 0) {
+                    Text("\(debugPlaybackTotalCount)")
+                        .accessibilityIdentifier("debug-playback-total-count")
+                    Text("\(debugPlaybackClassicCount)")
+                        .accessibilityIdentifier("debug-playback-classic-count")
+                    Text("\(debugPlaybackMultilingualCount)")
+                        .accessibilityIdentifier("debug-playback-multilingual-count")
+                    Text("\(debugPlaybackLiveTotalCount)")
+                        .accessibilityIdentifier("debug-playback-live-total-count")
+                    Text("\(debugPlaybackLiveClassicCount)")
+                        .accessibilityIdentifier("debug-playback-live-classic-count")
+                    Text("\(debugPlaybackLiveMultilingualCount)")
+                        .accessibilityIdentifier("debug-playback-live-multilingual-count")
+                }
+                .font(.system(size: 1))
+                .foregroundStyle(.clear)
+                #endif
             }
 
-            #if DEBUG
-            VStack(spacing: 0) {
-                Text("\(debugPlaybackTotalCount)")
-                    .accessibilityIdentifier("debug-playback-total-count")
-                Text("\(debugPlaybackClassicCount)")
-                    .accessibilityIdentifier("debug-playback-classic-count")
-                Text("\(debugPlaybackMultilingualCount)")
-                    .accessibilityIdentifier("debug-playback-multilingual-count")
-                Text("\(debugPlaybackLiveTotalCount)")
-                    .accessibilityIdentifier("debug-playback-live-total-count")
-                Text("\(debugPlaybackLiveClassicCount)")
-                    .accessibilityIdentifier("debug-playback-live-classic-count")
-                Text("\(debugPlaybackLiveMultilingualCount)")
-                    .accessibilityIdentifier("debug-playback-live-multilingual-count")
-            }
-            .font(.system(size: 1))
-            .foregroundStyle(.clear)
-            #endif
         }
         .onAppear {
             checkAppVersion()

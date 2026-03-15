@@ -20,194 +20,199 @@ struct MenuView: View {
     @State private var showInterfaceLanguageSheet: Bool = false
 
     var body: some View {
-        ZStack {
-            // Blur View
-            BlurView(style: .systemUltraThinMaterialDark)
-                .accessibilityIdentifier("side-menu")
+        GeometryReader { geometry in
+            let containerSize = geometry.size
+            let safeArea = geometry.safeAreaInsets
 
-            Color("DarkGreen")
-                .opacity(0.2)
-                .blur(radius: 15)
+            ZStack {
+                // Blur View
+                BlurView(style: .systemUltraThinMaterialDark)
+                    .accessibilityIdentifier("side-menu")
 
-            // Content
-            VStack(alignment: .leading, spacing: UIScreen.main.bounds.height < 750 ? 20 : 35) {
+                Color("DarkGreen")
+                    .opacity(0.2)
+                    .blur(radius: 15)
 
-                // MARK: Close Button
-                Button {
-                    withAnimation(.spring()) {
-                        settingsManager.showMenu = false
+                // Content
+                VStack(alignment: .leading, spacing: containerSize.height < 750 ? 20 : 35) {
+
+                    // MARK: Close Button
+                    Button {
+                        withAnimation(.spring()) {
+                            settingsManager.showMenu = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.title.weight(.light))
                     }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.title.weight(.light))
-                }
-                .foregroundColor(Color.white.opacity(0.5))
+                    .foregroundColor(Color.white.opacity(0.5))
 
-                // MARK: Menu Items
+                    // MARK: Menu Items
 
-                // 1. Главная
-                Button {
-                    selectItem(.main)
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "house.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(colorFor(.main))
-                        Text("menu.main".localized)
-                            .font(.system(.headline))
-                            .fontWeight(.bold)
-                            .foregroundColor(colorFor(.main))
-                    }
-                }
-                .accessibilityIdentifier("menu-main")
-                .accessibilityAddTraits(settingsManager.selectedMenuItem == .main ? .isSelected : [])
-
-                // 2. Мультичтение
-                Button {
-                    if settingsManager.isMultilingualReadingActive {
-                        selectItem(.multilingualRead)
-                    } else {
-                        selectItem(.multilingual)
-                    }
-                } label: {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "rectangle.stack.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(multilingualColor())
-                            .padding(.top, 2)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("menu.multilingual".localized)
+                    // 1. Главная
+                    Button {
+                        selectItem(.main)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "house.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(colorFor(.main))
+                            Text("menu.main".localized)
                                 .font(.system(.headline))
                                 .fontWeight(.bold)
+                                .foregroundColor(colorFor(.main))
+                        }
+                    }
+                    .accessibilityIdentifier("menu-main")
+                    .accessibilityAddTraits(settingsManager.selectedMenuItem == .main ? .isSelected : [])
+
+                    // 2. Мультичтение
+                    Button {
+                        if settingsManager.isMultilingualReadingActive {
+                            selectItem(.multilingualRead)
+                        } else {
+                            selectItem(.multilingual)
+                        }
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "rectangle.stack.fill")
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(multilingualColor())
-                            Text(multilingualTemplateSubtitle())
-                                .font(.system(size: 13))
-                                .foregroundColor(multilingualColor().opacity(0.5))
-                                .lineLimit(1)
+                                .padding(.top, 2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("menu.multilingual".localized)
+                                    .font(.system(.headline))
+                                    .fontWeight(.bold)
+                                    .foregroundColor(multilingualColor())
+                                Text(multilingualTemplateSubtitle())
+                                    .font(.system(size: 13))
+                                    .foregroundColor(multilingualColor().opacity(0.5))
+                                    .lineLimit(1)
+                            }
                         }
                     }
-                }
-                .accessibilityIdentifier("menu-multilingual")
-                .accessibilityAddTraits(settingsManager.selectedMenuItem == .multilingual || settingsManager.selectedMenuItem == .multilingualRead ? .isSelected : [])
+                    .accessibilityIdentifier("menu-multilingual")
+                    .accessibilityAddTraits(settingsManager.selectedMenuItem == .multilingual || settingsManager.selectedMenuItem == .multilingualRead ? .isSelected : [])
 
-                // 3. Обычное чтение
-                Button {
-                    selectItem(.read)
-                } label: {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "book.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(colorFor(.read))
-                            .padding(.top, 2)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("menu.classic_reading".localized)
-                                .font(.system(.headline))
-                                .fontWeight(.bold)
+                    // 3. Обычное чтение
+                    Button {
+                        selectItem(.read)
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "book.fill")
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(colorFor(.read))
-                            Text(readSubtitleSnapshot)
-                                .font(.system(size: 14))
-                                .foregroundColor(colorFor(.read).opacity(0.5))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
+                                .padding(.top, 2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("menu.classic_reading".localized)
+                                    .font(.system(.headline))
+                                    .fontWeight(.bold)
+                                    .foregroundColor(colorFor(.read))
+                                Text(readSubtitleSnapshot)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(colorFor(.read).opacity(0.5))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
                         }
                     }
-                }
-                .accessibilityIdentifier("menu-read")
-                .accessibilityAddTraits(settingsManager.selectedMenuItem == .read ? .isSelected : [])
+                    .accessibilityIdentifier("menu-read")
+                    .accessibilityAddTraits(settingsManager.selectedMenuItem == .read ? .isSelected : [])
 
-                // 4. Прогресс
-                Button {
-                    selectItem(.progress)
-                } label: {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(colorFor(.progress))
-                            .padding(.top, 2)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("menu.progress".localized)
-                                .font(.system(.headline))
-                                .fontWeight(.bold)
+                    // 4. Прогресс
+                    Button {
+                        selectItem(.progress)
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "chart.bar.fill")
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(colorFor(.progress))
-                            Text(progressPercentText())
-                                .font(.system(size: 13))
-                                .foregroundColor(colorFor(.progress).opacity(0.5))
+                                .padding(.top, 2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("menu.progress".localized)
+                                    .font(.system(.headline))
+                                    .fontWeight(.bold)
+                                    .foregroundColor(colorFor(.progress))
+                                Text(progressPercentText())
+                                    .font(.system(size: 13))
+                                    .foregroundColor(colorFor(.progress).opacity(0.5))
+                            }
                         }
                     }
-                }
-                .accessibilityIdentifier("menu-progress")
-                .accessibilityAddTraits(settingsManager.selectedMenuItem == .progress ? .isSelected : [])
+                    .accessibilityIdentifier("menu-progress")
+                    .accessibilityAddTraits(settingsManager.selectedMenuItem == .progress ? .isSelected : [])
 
-                // 5. Язык интерфейса
-                Button {
-                    showInterfaceLanguageSheet = true
-                } label: {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "globe")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(interfaceLanguageColor())
-                            .padding(.top, 2)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("settings.language".localized)
-                                .font(.system(.headline))
-                                .fontWeight(.bold)
+                    // 5. Язык интерфейса
+                    Button {
+                        showInterfaceLanguageSheet = true
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "globe")
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(interfaceLanguageColor())
-                            Text(localizationManager.currentLanguage.displayName)
-                                .font(.system(size: 13))
-                                .foregroundColor(interfaceLanguageColor().opacity(0.5))
+                                .padding(.top, 2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("settings.language".localized)
+                                    .font(.system(.headline))
+                                    .fontWeight(.bold)
+                                    .foregroundColor(interfaceLanguageColor())
+                                Text(localizationManager.currentLanguage.displayName)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(interfaceLanguageColor().opacity(0.5))
+                            }
                         }
                     }
-                }
-                .accessibilityIdentifier("menu-language")
+                    .accessibilityIdentifier("menu-language")
 
-                // 6. Контакты
-                Button {
-                    selectItem(.contacts)
-                } label: {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(colorFor(.contacts))
-                            .padding(.top, 2)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("menu.contacts".localized)
-                                .font(.system(.headline))
-                                .fontWeight(.bold)
+                    // 6. Контакты
+                    Button {
+                        selectItem(.contacts)
+                    } label: {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(colorFor(.contacts))
-                            Text("\("menu.version".localized) \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
-                                .font(.system(size: 13))
-                                .foregroundColor(colorFor(.contacts).opacity(0.5))
+                                .padding(.top, 2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("menu.contacts".localized)
+                                    .font(.system(.headline))
+                                    .fontWeight(.bold)
+                                    .foregroundColor(colorFor(.contacts))
+                                Text("\("menu.version".localized) \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(colorFor(.contacts).opacity(0.5))
+                            }
                         }
                     }
-                }
-                .accessibilityIdentifier("menu-contacts")
-                .accessibilityAddTraits(settingsManager.selectedMenuItem == .contacts ? .isSelected : [])
+                    .accessibilityIdentifier("menu-contacts")
+                    .accessibilityAddTraits(settingsManager.selectedMenuItem == .contacts ? .isSelected : [])
 
-                Spacer(minLength: 10)
+                    Spacer(minLength: 10)
+                }
+                .padding(.trailing, 120)
+                .padding()
+                .padding(.leading, 6)
+                .padding(.top, safeArea.top > 40 ? max(safeArea.top - 16, 0) : max(safeArea.top, 0))
+                .padding(.bottom, safeArea.bottom)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .padding(.trailing, 120)
-            .padding()
-            .padding(.leading, 6)
-            .padding(.top, getSafeArea().top > 40 ? max(getSafeArea().top - 16, 0) : max(getSafeArea().top - 0, 0))
-            .padding(.bottom, getSafeArea().bottom)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: min(containerSize.width, 500))
+            .clipShape(MenuShape(value: 0))
+            .contentShape(MenuShape(value: 0))
+            .background(
+                MenuShape(value: 0)
+                    .stroke(
+                        .linearGradient(.init(colors: [
+                            Color("ForestGreen"),
+                            Color("Mustard").opacity(0.7),
+                            Color("Mustard").opacity(0.7),
+                        ]), startPoint: .top, endPoint: .bottom),
+                        lineWidth: 1
+                    )
+                    .padding(.leading, -50)
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: min(UIScreen.main.bounds.width, 500))
-        .clipShape(MenuShape(value: 0))
-        .contentShape(MenuShape(value: 0))
-        .background(
-            MenuShape(value: 0)
-                .stroke(
-                    .linearGradient(.init(colors: [
-                        Color("ForestGreen"),
-                        Color("Mustard").opacity(0.7),
-                        Color("Mustard").opacity(0.7),
-                    ]), startPoint: .top, endPoint: .bottom),
-                    lineWidth: 1
-                )
-                .padding(.leading, -50)
-        )
-        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
             refreshReadSubtitleSnapshot()
         }
@@ -409,25 +414,6 @@ struct MenuButtonView: View {
     }
 }
 
-// MARK: - Extensions
-
-extension View {
-
-    func getSafeArea() -> UIEdgeInsets {
-        guard let screen = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-            return .zero
-        }
-        guard let safeArea = screen.windows.first?.safeAreaInsets else {
-            return .zero
-        }
-        return safeArea
-    }
-
-    func getRect() -> CGRect {
-        return UIScreen.main.bounds
-    }
-}
-
 // MARK: - BlurView
 struct BlurView: UIViewRepresentable {
 
@@ -460,7 +446,6 @@ struct TestView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .edgesIgnoringSafeArea(.all)
-                .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
         )
     }
 }
