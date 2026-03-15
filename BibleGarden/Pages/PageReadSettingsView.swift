@@ -119,6 +119,8 @@ struct PageReadSettingsView: View {
                             ViewFont()
 
                             ViewPause()
+
+                            ViewPlayback()
                         }
                         .padding(.horizontal, globalBasePadding)
                         .padding(.top, 10)
@@ -330,12 +332,25 @@ struct PageReadSettingsView: View {
                 }
             }
 
-            HStack {
-                Toggle("settings.auto_next_chapter".localized, isOn: $settingsManager.autoNextChapter)
-                    .toggleStyle(SwitchToggleStyle(tint: Color("DarkGreen-accent")))
-                    .accessibilityIdentifier("settings-auto-next")
-            }
         }
+        .padding(1)
+    }
+
+    // MARK: Playback
+    @ViewBuilder private func ViewPlayback() -> some View {
+        viewGroupHeader(text: "settings.player".localized)
+        HStack(spacing: 12) {
+            Text("settings.auto_next_chapter".localized)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Toggle("", isOn: $settingsManager.autoNextChapter)
+                .labelsHidden()
+                .toggleStyle(SwitchToggleStyle(tint: Color("DarkGreen-accent")))
+                .accessibilityIdentifier("settings-auto-next")
+        }
+        .padding(.top, -6)
+        .padding(.bottom, globalBasePadding)
         .padding(1)
     }
     
