@@ -314,9 +314,12 @@ struct PageReadView: View {
             let effectiveFirstUrl = TestingEnvironment.forceNoAudio ? "" : firstUrl
 
             textVerses = thisTextVerses
+            guard !textVerses.isEmpty else {
+                throw NSError(domain: "updateExcerpt", code: 204, userInfo: [NSLocalizedDescriptionKey: "error.loading.chapter".localized])
+            }
             self.hasText = true
             beginTextReadingTracking()
-            
+
             // Update book and chapter information
             settingsManager.currentBookId = textVerses[0].bookDigitCode
             settingsManager.currentChapterId = textVerses[0].chapterDigitCode
@@ -358,6 +361,7 @@ struct PageReadView: View {
             }
         } catch {
             print("[PageReadView] Failed to load excerpt: \(error)")
+            self.textVerses = []
             self.errorDescription = userFacingLoadingErrorMessage(for: error)
         }
         withAnimation(.easeOut(duration: 0.8)) {

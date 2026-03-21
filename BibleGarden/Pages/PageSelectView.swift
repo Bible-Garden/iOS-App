@@ -225,10 +225,13 @@ struct PageSelectView: View {
                         ForEach(self.booksInfo, id: \.code) { book in
                             if (selectedBiblePartIndex == 0 && book.book_number < 39) || (selectedBiblePartIndex == 1 && book.book_number >= 39) || selectedBiblePartIndex == -1 {
                                 
+                                let chaptersWithoutTextCount = book.chapters_without_text?.count ?? 0
+                                let hasNoTextForWholeBook = chaptersWithoutTextCount == book.chapters_count
+
                                 if let headerTitle = bibleHeaders[book.book_number] {
                                     viewGroupHeader(text: headerTitle)
                                 }
-                                
+
                                 // Expand / collapse book
                                 Button {
                                     
@@ -247,7 +250,7 @@ struct PageSelectView: View {
                                         Text(book.name)
                                             .multilineTextAlignment(.leading)
                                             .frame(maxWidth: .infinity, alignment: .leading)
-                                        
+
                                         // Icon when entire book lacks audio
                                         let chaptersWithoutAudioCount = book.chapters_without_audio?.count ?? 0
                                         let hasNoAudioForWholeBook = chaptersWithoutAudioCount == book.chapters_count
@@ -301,10 +304,12 @@ struct PageSelectView: View {
                                         }
                                     }
                                     .padding(.vertical, 10)
+                                    .opacity(hasNoTextForWholeBook ? 0.3 : 1)
                                     .id("book_\(book.book_number)")
                                 }
-                                 
-                                if expandedBook == book.book_number || (settingsManager.currentBookId == book.book_number && needSelectedBookOpen) {
+                                .disabled(hasNoTextForWholeBook)
+
+                                if !hasNoTextForWholeBook && (expandedBook == book.book_number || (settingsManager.currentBookId == book.book_number && needSelectedBookOpen)) {
                                     viewChaptersList(book)
                                 }
                             }
