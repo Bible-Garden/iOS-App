@@ -102,6 +102,7 @@
 "settings.select_language" = "Виберіть мову";
 "settings.select_translation" = "Виберіть переклад";
 "settings.select_reader" = "Виберіть хто читає";
+"settings.error.incomplete_selection" = "Оберіть переклад та озвучку перед збереженням.";
 
 /* Bible parts */
 "bible.part.old" = "Старий Заповіт";

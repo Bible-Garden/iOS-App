@@ -51,6 +51,7 @@ struct PageReadSettingsView: View {
     @State private var previewTimer: AnyCancellable? = nil
     @State private var previewTimeObserver: Any? = nil
     @State private var expandedSelectionSection: SelectionAccordionSection? = nil
+    @State private var highlightedSelectionSection: SelectionAccordionSection? = nil
     
     init(showFromRead: Binding<Bool>) {
         self._showFromRead = showFromRead
@@ -81,7 +82,23 @@ struct PageReadSettingsView: View {
                 } trailing: {
                     if showFromRead {
                         Button {
-                            showFromRead = false
+                            if translation.isEmpty {
+                                inlineErrorMessage = "settings.error.incomplete_selection".localized
+                                highlightedSelectionSection = .translation
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    expandedSelectionSection = .translation
+                                }
+                            } else if voice.isEmpty {
+                                inlineErrorMessage = "settings.error.incomplete_selection".localized
+                                highlightedSelectionSection = .voice
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    expandedSelectionSection = .voice
+                                }
+                            } else {
+                                highlightedSelectionSection = nil
+                                inlineErrorMessage = ""
+                                showFromRead = false
+                            }
                         } label: {
                             Text("settings.save_choice".localized)
                                 .fontWeight(.bold)
@@ -412,6 +429,8 @@ struct PageReadSettingsView: View {
                         descriptions: translationDescriptions,
                         onSelect: { selectedTranslateIndex in
                             stopVoicePreview()
+                            highlightedSelectionSection = nil
+                            inlineErrorMessage = ""
                             let selectedTranslation = translationKeys[selectedTranslateIndex]
                             let selectedTranslationName = translationNames[selectedTranslateIndex]
                             transitionToSection(.voice) {
@@ -446,6 +465,8 @@ struct PageReadSettingsView: View {
                         selectedKey: $voice,
                         descriptions: voiceDescriptions,
                         onSelect: { selectedTranslateIndex in
+                            highlightedSelectionSection = nil
+                            inlineErrorMessage = ""
                             self.voice = voiceKeys[selectedTranslateIndex]
                             self.voiceName = voiceTexts[selectedTranslateIndex]
                             self.voiceMusic = voiceMusics[selectedTranslateIndex]
@@ -481,6 +502,7 @@ struct PageReadSettingsView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         let isExpanded = expandedSelectionSection == section
+        let isHighlighted = highlightedSelectionSection == section
         VStack(spacing: 0) {
             Button {
                 toggleSelectionSection(section)
@@ -529,8 +551,9 @@ struct PageReadSettingsView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(
+                    isHighlighted ? Color.red.opacity(0.8) :
                     isExpanded ? Color("Mustard").opacity(0.5) : Color.white.opacity(0.2),
-                    lineWidth: isExpanded ? 1.1 : 1
+                    lineWidth: isHighlighted ? 1.5 : isExpanded ? 1.1 : 1
                 )
         )
     }

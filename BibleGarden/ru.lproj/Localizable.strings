@@ -102,6 +102,7 @@
 "settings.select_language" = "Выберите язык";
 "settings.select_translation" = "Выберите перевод";
 "settings.select_reader" = "Выберите кто читает";
+"settings.error.incomplete_selection" = "Выберите перевод и озвучку перед сохранением.";
 
 /* Bible parts */
 "bible.part.old" = "Ветхий Завет";

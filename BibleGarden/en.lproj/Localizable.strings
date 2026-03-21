@@ -102,6 +102,7 @@
 "settings.select_language" = "Select language";
 "settings.select_translation" = "Select translation";
 "settings.select_reader" = "Select who reads";
+"settings.error.incomplete_selection" = "Please select a translation and reader before saving.";
 
 /* Bible parts */
 "bible.part.old" = "Old Testament";
