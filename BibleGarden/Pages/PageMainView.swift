@@ -207,6 +207,8 @@ struct MainMenuCard: View {
                     Text(subtitle)
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.82))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 
                 Spacer()
