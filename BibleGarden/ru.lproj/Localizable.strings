@@ -84,7 +84,7 @@
 "settings.language.russian" = "Русский";
 "settings.language.english" = "English";
 "settings.language.ukrainian" = "Українська";
-"settings.font" = "Шрифт";
+"settings.font" = "Размер текста";
 "settings.font.reset" = "Сброс";
 "settings.font.example" = "Пример:";
 "settings.pause" = "Пауза";
