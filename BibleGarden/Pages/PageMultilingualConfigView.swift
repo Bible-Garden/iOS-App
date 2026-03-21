@@ -229,15 +229,17 @@ struct PageMultilingualConfigView: View {
                                     .foregroundColor(.white)
                             }
                             .frame(width: 50, height: 40)
-                            
+                            .disabled(step.playbackSpeed <= 0.5)
+                            .opacity(step.playbackSpeed <= 0.5 ? 0.3 : 1.0)
+
                             Divider().background(Color.white)
-                            
+
                             Text(String(format: "%.1fx", step.playbackSpeed))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity, maxHeight: 40)
-                            
+
                             Divider().background(Color.white)
-                            
+
                             Button(action: {
                                 if step.playbackSpeed < 2.5 {
                                     step.playbackSpeed += 0.1
@@ -250,6 +252,8 @@ struct PageMultilingualConfigView: View {
                                     .foregroundColor(.white)
                             }
                             .frame(width: 50, height: 40)
+                            .disabled(step.playbackSpeed >= 2.5)
+                            .opacity(step.playbackSpeed >= 2.5 ? 0.3 : 1.0)
                         }
                         .background(
                             RoundedRectangle(cornerRadius: 5)
@@ -278,10 +282,12 @@ struct PageMultilingualConfigView: View {
                                         .background(Color.clear)
                                         .foregroundColor(.white)
                                 }
-                                
+                                .disabled(step.fontIncreasePercent <= 10)
+                                .opacity(step.fontIncreasePercent <= 10 ? 0.3 : 1.0)
+
                                 Divider() // Divider between buttons
                                     .background(Color.white)
-                                
+
                                 Button(action: {
                                     if step.fontIncreasePercent < 500 {
                                         step.fontIncreasePercent += 10
@@ -293,6 +299,8 @@ struct PageMultilingualConfigView: View {
                                         .background(Color.clear)
                                         .foregroundColor(.white)
                                 }
+                                .disabled(step.fontIncreasePercent >= 500)
+                                .opacity(step.fontIncreasePercent >= 500 ? 0.3 : 1.0)
                             }
                             .background(
                                 RoundedRectangle(cornerRadius: 5)

@@ -192,6 +192,8 @@ struct PageReadSettingsView: View {
                             .background(Color.clear)
                             .foregroundColor(.white)
                     }
+                    .disabled(settingsManager.fontIncreasePercent <= 10)
+                    .opacity(settingsManager.fontIncreasePercent <= 10 ? 0.3 : 1.0)
                     .accessibilityIdentifier("settings-font-decrease")
 
                     Divider() // Divider between buttons
@@ -208,6 +210,8 @@ struct PageReadSettingsView: View {
                             .background(Color.clear)
                             .foregroundColor(.white)
                     }
+                    .disabled(settingsManager.fontIncreasePercent >= 500)
+                    .opacity(settingsManager.fontIncreasePercent >= 500 ? 0.3 : 1.0)
                     .accessibilityIdentifier("settings-font-increase")
                 }
                 .background(
@@ -298,7 +302,9 @@ struct PageReadSettingsView: View {
                                     .padding(10)
                                     .foregroundColor(.white.opacity(0.5))
                             }
-                            
+                            .disabled(settingsManager.pauseLength < 1)
+                            .opacity(settingsManager.pauseLength < 1 ? 0.3 : 1.0)
+
                             TextField("", text: Binding(
                                 get: {
                                     String(settingsManager.pauseLength)
@@ -316,14 +322,18 @@ struct PageReadSettingsView: View {
                                     .stroke(.white.opacity(0.25), lineWidth: 1)
                             )
                             .multilineTextAlignment(.center)
-                            
+
                             Button(action: {
-                                settingsManager.pauseLength += 1
+                                if settingsManager.pauseLength < 60 {
+                                    settingsManager.pauseLength += 1
+                                }
                             }) {
                                 Image(systemName: "plus")
                                     .padding(10)
                                     .foregroundColor(.white.opacity(0.5))
                             }
+                            .disabled(settingsManager.pauseLength >= 60)
+                            .opacity(settingsManager.pauseLength >= 60 ? 0.3 : 1.0)
                         }
                         .background(
                             RoundedRectangle(cornerRadius: 5)

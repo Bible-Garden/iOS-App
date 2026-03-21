@@ -330,16 +330,22 @@ struct PageMultilingualView: View {
                             .frame(width: 30, height: 30)
                             .contentShape(Rectangle())
                     }
-                    
+                    .disabled(step.pauseDuration <= 1)
+                    .opacity(step.pauseDuration <= 1 ? 0.3 : 1.0)
+
                     Divider().frame(height: 20).background(Color.white.opacity(0.3))
-                    
+
                     Button {
-                        settingsManager.multilingualSteps[index].pauseDuration += 1
+                        if settingsManager.multilingualSteps[index].pauseDuration < 60 {
+                            settingsManager.multilingualSteps[index].pauseDuration += 1
+                        }
                     } label: {
                         Image(systemName: "plus")
                             .frame(width: 30, height: 30)
                             .contentShape(Rectangle())
                     }
+                    .disabled(step.pauseDuration >= 60)
+                    .opacity(step.pauseDuration >= 60 ? 0.3 : 1.0)
                 }
                 .background(Color.white.opacity(0.1))
                 .cornerRadius(5)
