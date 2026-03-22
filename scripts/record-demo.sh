@@ -25,11 +25,13 @@ SIMULATOR="iPhone 16 Pro Max"
 TARGET_W=1290
 TARGET_H=2796
 # Seconds to trim from the beginning (simulator boot + app launch)
-TRIM_START=13.5
+TRIM_START=12.6
 # Speed ramp: speed up a segment (times after trimming, e.g. 6-15s of final video)
 SPEED_START=6     # start of sped-up segment (seconds in trimmed video)
 SPEED_END=15      # end of sped-up segment
 SPEED_FACTOR=1.5  # playback speed multiplier
+# Seconds to trim from the end
+TRIM_END=1
 
 ALL_LANGUAGES=("ru" "en" "uk")
 LANGUAGES=("${ALL_LANGUAGES[@]}")
@@ -128,7 +130,8 @@ process() {
 
     echo ""
     echo "📐 [$LANG_CODE] Source: ${SRC_W}x${SRC_H}, ${DURATION_INT}s"
-    echo "📐 [$LANG_CODE] Target: ${TARGET_W}x${TARGET_H}, skip first ${TRIM_START}s"
+    USABLE_DUR=$(echo "$DURATION - $TRIM_START - $TRIM_END" | bc)
+    echo "📐 [$LANG_CODE] Target: ${TARGET_W}x${TARGET_H}, trim ${TRIM_START}s start + ${TRIM_END}s end"
     echo "⏩ [$LANG_CODE] Speed ×${SPEED_FACTOR} from ${SPEED_START}s to ${SPEED_END}s"
 
     # Scale + crop filter
@@ -147,7 +150,7 @@ process() {
     "
 
     echo "🔄 [$LANG_CODE] Processing..."
-    ffmpeg -y -ss "$TRIM_START" -i "$RAW" \
+    ffmpeg -y -ss "$TRIM_START" -t "$USABLE_DUR" -i "$RAW" \
         -filter_complex "$FILTER_COMPLEX" \
         -map "[out]" \
         -c:v h264 -profile:v high -level 4.2 \
