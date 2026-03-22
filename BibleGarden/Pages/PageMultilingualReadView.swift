@@ -571,7 +571,7 @@ struct PageMultilingualReadView: View {
 					.foregroundColor(Color("localAccentColor").opacity(0.85))
                 Spacer()
                 // Inline buffering/error indicator
-                if audiopleer.isStalled || audiopleer.isBufferingLong {
+                if !TestingEnvironment.isDemoRecording && (audiopleer.isStalled || audiopleer.isBufferingLong) {
                     HStack(spacing: 4) {
                         ProgressView()
                             .tint(Color("Mustard"))

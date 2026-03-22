@@ -21,11 +21,11 @@ VIDEO_DIR="$PROJECT_DIR/demo_videos"
 mkdir -p "$VIDEO_DIR"
 
 SIMULATOR="iPhone 16 Pro Max"
-# App Store 6.7" display: 1290x2796
-TARGET_W=1290
-TARGET_H=2796
+# App Store preview 6.5"/6.7" display: 886x1920 (portrait)
+TARGET_W=886
+TARGET_H=1920
 # Seconds to trim from the beginning (simulator boot + app launch)
-TRIM_START=12.6
+TRIM_START=11.8
 # Speed ramp: speed up a segment (times after trimming, e.g. 6-15s of final video)
 SPEED_START=6     # start of sped-up segment (seconds in trimmed video)
 SPEED_END=15      # end of sped-up segment
@@ -150,14 +150,34 @@ process() {
     "
 
     echo "🔄 [$LANG_CODE] Processing..."
-    ffmpeg -y -ss "$TRIM_START" -t "$USABLE_DUR" -i "$RAW" \
-        -filter_complex "$FILTER_COMPLEX" \
-        -map "[out]" \
-        -c:v h264 -profile:v high -level 4.2 \
-        -pix_fmt yuv420p \
-        -b:v 12M -maxrate 15M -bufsize 20M \
-        -an \
-        "$OUTPUT" 2>&1 | grep -E '(frame=|error|Error)' || true
+    # Check if raw file has audio
+    HAS_AUDIO=$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "$RAW" | head -1)
+
+    if [[ "$HAS_AUDIO" == "audio" ]]; then
+        # Use real audio from recording, apply same trim
+        AUDIO_FILTER="[0:a]atrim=start=0,asetpts=PTS-STARTPTS[aout]"
+        FULL_FILTER="${FILTER_COMPLEX%\[out\]*}[out];${AUDIO_FILTER}"
+
+        ffmpeg -y -ss "$TRIM_START" -t "$USABLE_DUR" -i "$RAW" \
+            -filter_complex "$FULL_FILTER" \
+            -map "[out]" -map "[aout]" \
+            -c:v h264 -profile:v high -level 4.2 \
+            -pix_fmt yuv420p \
+            -b:v 12M -maxrate 15M -bufsize 20M \
+            -c:a aac -b:a 128k \
+            "$OUTPUT" 2>&1 | grep -E '(frame=|error|Error)' || true
+    else
+        # No audio in raw — add silent track
+        ffmpeg -y -ss "$TRIM_START" -t "$USABLE_DUR" -i "$RAW" \
+            -f lavfi -i anullsrc=r=44100:cl=stereo \
+            -filter_complex "$FILTER_COMPLEX" \
+            -map "[out]" -map 1:a -shortest \
+            -c:v h264 -profile:v high -level 4.2 \
+            -pix_fmt yuv420p \
+            -b:v 12M -maxrate 15M -bufsize 20M \
+            -c:a aac -b:a 128k \
+            "$OUTPUT" 2>&1 | grep -E '(frame=|error|Error)' || true
+    fi
 
     # Verify output (use stream duration for accuracy, fallback to format)
     OUT_W=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$OUTPUT")
