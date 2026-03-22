@@ -20,7 +20,7 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VIDEO_DIR="$PROJECT_DIR/demo_videos"
 mkdir -p "$VIDEO_DIR"
 
-SIMULATOR="iPhone 17 Pro"
+SIMULATOR="iPhone 16 Pro Max"
 # App Store 6.7" display: 1290x2796
 TARGET_W=1290
 TARGET_H=2796
