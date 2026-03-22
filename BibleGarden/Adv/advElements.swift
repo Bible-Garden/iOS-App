@@ -23,6 +23,13 @@ struct CloseHeaderButton: View {
     }
 }
 
+private struct SideWidthKey: PreferenceKey {
+    static var defaultValue: [Bool: CGFloat] = [:]
+    static func reduce(value: inout [Bool: CGFloat], nextValue: () -> [Bool: CGFloat]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
 struct AppHeaderBar<Leading: View, Center: View, Trailing: View>: View {
     let extraTop: CGFloat
     let extraTopSmall: CGFloat
@@ -31,6 +38,9 @@ struct AppHeaderBar<Leading: View, Center: View, Trailing: View>: View {
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let center: () -> Center
     @ViewBuilder let trailing: () -> Trailing
+
+    @State private var measuredLeadingWidth: CGFloat
+    @State private var measuredTrailingWidth: CGFloat
 
     init(
         extraTop: CGFloat = 0,
@@ -48,24 +58,38 @@ struct AppHeaderBar<Leading: View, Center: View, Trailing: View>: View {
         self.leading = leading
         self.center = center
         self.trailing = trailing
+        self._measuredLeadingWidth = State(initialValue: leadingWidth)
+        self._measuredTrailingWidth = State(initialValue: trailingWidth)
     }
 
     var body: some View {
         ZStack {
             center()
                 .frame(maxWidth: .infinity)
-                .padding(.leading, leadingWidth + 8)
-                .padding(.trailing, trailingWidth + 8)
+                .padding(.leading, measuredLeadingWidth + 8)
+                .padding(.trailing, measuredTrailingWidth + 8)
 
             HStack(spacing: 0) {
                 leading()
-                    .frame(width: leadingWidth, height: AppHeaderMetrics.controlSize, alignment: .leading)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(minWidth: leadingWidth, minHeight: AppHeaderMetrics.controlSize, maxHeight: AppHeaderMetrics.controlSize, alignment: .leading)
+                    .background(GeometryReader { geo in
+                        Color.clear.preference(key: SideWidthKey.self, value: [true: geo.size.width])
+                    })
 
                 Spacer(minLength: 0)
 
                 trailing()
-                    .frame(width: trailingWidth, height: AppHeaderMetrics.controlSize, alignment: .trailing)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(minWidth: trailingWidth, minHeight: AppHeaderMetrics.controlSize, maxHeight: AppHeaderMetrics.controlSize, alignment: .trailing)
+                    .background(GeometryReader { geo in
+                        Color.clear.preference(key: SideWidthKey.self, value: [false: geo.size.width])
+                    })
             }
+        }
+        .onPreferenceChange(SideWidthKey.self) { sizes in
+            if let w = sizes[true] { measuredLeadingWidth = w }
+            if let w = sizes[false] { measuredTrailingWidth = w }
         }
         .padding(.horizontal, globalBasePadding)
         .headerPadding(extraTop: extraTop, extraTopSmall: extraTopSmall)
