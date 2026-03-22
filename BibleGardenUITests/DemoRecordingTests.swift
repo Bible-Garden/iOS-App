@@ -231,6 +231,6 @@ final class DemoRecordingTests: XCTestCase {
         waitAndTap(playPause)
 
         // Даём проиграться
-        pause(6.5)
+        pause(7.0)
     }
 }
