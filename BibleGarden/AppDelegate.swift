@@ -107,6 +107,19 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             }
         }
 
+        // Demo recording: ускоряем анимации чтобы XCUITest не ждал idle долго
+        if CommandLine.arguments.contains("--demo-recording") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                for scene in UIApplication.shared.connectedScenes {
+                    if let windowScene = scene as? UIWindowScene {
+                        for window in windowScene.windows {
+                            window.layer.speed = 100
+                        }
+                    }
+                }
+            }
+        }
+
         // Preload WKWebView ahead of time
         preloadedWebView = WKWebView()
         preloadedWebView?.loadHTMLString("", baseURL: nil)

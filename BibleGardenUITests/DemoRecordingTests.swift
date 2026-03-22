@@ -25,29 +25,39 @@ final class DemoRecordingTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func pause(_ seconds: TimeInterval = 0.3) {
+    private func pause(_ seconds: TimeInterval = 0.05) {
         Thread.sleep(forTimeInterval: seconds)
     }
 
+    /// Быстрое ожидание элемента с коротким polling (не 1с как у waitForExistence)
+    private func quickWait(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists { return true }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        return false
+    }
+
     /// Двойной тап: 1-й показывает индикатор (поглощается), 2-й выполняет действие.
-    private func demoTap(_ element: XCUIElement, prePause: TimeInterval = 0.15, postPause: TimeInterval = 0.3) {
+    private func demoTap(_ element: XCUIElement, prePause: TimeInterval = 0.05, postPause: TimeInterval = 0.05) {
         pause(prePause)
         element.tap()          // preview — показывает кружок, поглощается overlay
-        pause(0.15)            // зритель видит индикатор
+        pause(0.1)             // зритель видит индикатор
         element.tap()          // action — проходит насквозь к кнопке
         pause(postPause)
     }
 
-    private func waitAndTap(_ element: XCUIElement, timeout: TimeInterval = 10, postPause: TimeInterval = 0.3) {
-        guard element.waitForExistence(timeout: timeout) else { return }
+    private func waitAndTap(_ element: XCUIElement, timeout: TimeInterval = 5, postPause: TimeInterval = 0.05) {
+        guard quickWait(element, timeout: timeout) else { return }
         demoTap(element, postPause: postPause)
     }
 
     /// Множественные тапы (для +/- кнопок) — без preview, прямые.
-    private func demoTapMultiple(_ element: XCUIElement, times: Int, interval: TimeInterval = 0.2) {
+    private func demoTapMultiple(_ element: XCUIElement, times: Int, interval: TimeInterval = 0.05) {
         // Первый тап с preview
         element.tap()          // preview
-        pause(0.15)
+        pause(0.1)
         element.tap()          // action
         pause(interval)
         // Остальные — без preview (быстро)
@@ -58,7 +68,7 @@ final class DemoRecordingTests: XCTestCase {
         }
     }
 
-    private func tapHittableText(containing keywords: [String], timeout: TimeInterval = 8, postPause: TimeInterval = 0.4) -> Bool {
+    private func tapHittableText(containing keywords: [String], timeout: TimeInterval = 5, postPause: TimeInterval = 0.05) -> Bool {
         let conditions = keywords.map { "label CONTAINS[c] '\($0)'" }.joined(separator: " OR ")
         let predicate = NSPredicate(format: conditions)
         let matches = app.staticTexts.matching(predicate)
@@ -69,13 +79,13 @@ final class DemoRecordingTests: XCTestCase {
                 let element = matches.element(boundBy: i)
                 if element.exists && element.isHittable {
                     element.tap()      // preview
-                    pause(0.15)
+                    pause(0.1)
                     element.tap()      // action
                     pause(postPause)
                     return true
                 }
             }
-            Thread.sleep(forTimeInterval: 0.2)
+            Thread.sleep(forTimeInterval: 0.05)
         }
         return false
     }
@@ -86,68 +96,66 @@ final class DemoRecordingTests: XCTestCase {
     func testAppStoreDemo() {
 
         // Сцена 1: Главная → Мультиязычное чтение
-        pause(0.8)
+        pause(0.3)
 
         let multiCard = app.buttons["card-multilingual"]
-        waitAndTap(multiCard, postPause: 0.5)
+        waitAndTap(multiCard)
 
         let setupPage = app.otherElements["page-multi-setup"]
-        guard setupPage.waitForExistence(timeout: 8) else { return }
-        pause(0.3)
+        guard quickWait(setupPage, timeout: 8) else { return }
 
         // Сцена 2: Добавляем первый перевод
         let addReadBtn = app.buttons["multi-add-read-step"]
-        waitAndTap(addReadBtn, postPause: 0.8)
+        waitAndTap(addReadBtn, postPause: 0.2)
 
         let configSave = app.buttons["multi-config-save"]
-        waitAndTap(configSave, timeout: 8, postPause: 0.5)
+        waitAndTap(configSave, timeout: 8)
 
         // Сцена 3: Добавляем паузу
         let addPauseBtn = app.buttons["multi-add-pause-step"]
-        waitAndTap(addPauseBtn, postPause: 0.3)
+        waitAndTap(addPauseBtn)
 
         let pausePlus = app.buttons["multi-pause-plus-1"]
-        if pausePlus.waitForExistence(timeout: 3) {
-            demoTap(pausePlus, postPause: 0.3)
+        if pausePlus.exists {
+            demoTap(pausePlus)
         }
 
         // Сцена 4: Добавляем второй перевод
-        waitAndTap(addReadBtn, postPause: 0.5)
+        waitAndTap(addReadBtn)
 
         let langSection = app.buttons["config-section-language"]
-        guard langSection.waitForExistence(timeout: 10) else { return }
-        pause(0.3)
+        guard quickWait(langSection, timeout: 8) else { return }
 
         // Язык
-        demoTap(langSection, postPause: 0.8)
-        let foundEnglish = tapHittableText(containing: ["English"], timeout: 8, postPause: 0.6)
+        demoTap(langSection)
+        let foundEnglish = tapHittableText(containing: ["English"], timeout: 5)
         if !foundEnglish {
-            _ = tapHittableText(containing: ["Eng"], timeout: 3, postPause: 0.6)
+            _ = tapHittableText(containing: ["Eng"], timeout: 2)
         }
 
         // Перевод
         let foundTranslation = tapHittableText(
             containing: ["BSB", "KJV", "ESV", "NIV", "NASB", "NLT", "WEB", "NKJV"],
-            timeout: 10, postPause: 0.6
+            timeout: 5
         )
         if !foundTranslation {
             let transSection = app.buttons["config-section-translation"]
-            if transSection.waitForExistence(timeout: 3) {
-                demoTap(transSection, postPause: 0.8)
-                _ = tapHittableText(containing: ["BSB", "KJV", "ESV", "NIV"], timeout: 5, postPause: 0.6)
+            if quickWait(transSection, timeout: 2) {
+                demoTap(transSection)
+                _ = tapHittableText(containing: ["BSB", "KJV", "ESV", "NIV"], timeout: 3)
             }
         }
 
         // Голос
         let foundVoice = tapHittableText(
             containing: ["Souer", "Bob", "David", "James", "John", "Michael", "Mark"],
-            timeout: 10, postPause: 0.4
+            timeout: 5
         )
         if !foundVoice {
             let voiceSection = app.buttons["config-section-voice"]
-            if voiceSection.waitForExistence(timeout: 3) {
-                demoTap(voiceSection, postPause: 0.8)
-                _ = tapHittableText(containing: ["Souer", "Bob"], timeout: 5, postPause: 0.4)
+            if quickWait(voiceSection, timeout: 2) {
+                demoTap(voiceSection)
+                _ = tapHittableText(containing: ["Souer", "Bob"], timeout: 3)
             }
         }
 
@@ -155,70 +163,63 @@ final class DemoRecordingTests: XCTestCase {
         let speedPlus = app.buttons["config-speed-plus"]
         if !speedPlus.isHittable {
             app.swipeUp()
-            pause(0.2)
         }
-        if speedPlus.waitForExistence(timeout: 5) {
-            demoTapMultiple(speedPlus, times: 2, interval: 0.25)
-            pause(0.2)
+        if quickWait(speedPlus, timeout: 3) {
+            demoTapMultiple(speedPlus, times: 2)
         }
 
         // Шрифт 100% → 70%
         let fontMinus = app.buttons["config-font-minus"]
-        if fontMinus.waitForExistence(timeout: 5) {
-            demoTapMultiple(fontMinus, times: 3, interval: 0.25)
-            pause(0.3)
+        if quickWait(fontMinus, timeout: 3) {
+            demoTapMultiple(fontMinus, times: 3)
         }
 
         // Сохраняем второй степ
         let configSave2 = app.buttons["multi-config-save"]
-        waitAndTap(configSave2, timeout: 5, postPause: 0.5)
+        waitAndTap(configSave2, timeout: 3)
 
         // Показываем список степов
-        pause(0.8)
+        pause(0.2)
 
         // «Сохранить и читать»
         let saveAndRead = app.buttons["multilingual-save-and-read"]
-        waitAndTap(saveAndRead, postPause: 0.5)
+        waitAndTap(saveAndRead)
 
         // Save-alert — пропускаем
         let skipPredicate = NSPredicate(format: "identifier == 'multi-save-alert' AND (label CONTAINS[c] 'without' OR label CONTAINS[c] 'без' OR label CONTAINS[c] 'Не сохран')")
         let skipBtn = app.buttons.matching(skipPredicate).firstMatch
-        if skipBtn.waitForExistence(timeout: 5) {
-            demoTap(skipBtn, postPause: 0.5)
+        if quickWait(skipBtn, timeout: 3) {
+            demoTap(skipBtn)
         }
 
         // Страница чтения
         let readingPage = app.otherElements["page-multi-reading"]
-        guard readingPage.waitForExistence(timeout: 15) else { return }
+        guard quickWait(readingPage, timeout: 10) else { return }
 
-        let _ = app.waitForMultiTextContent(timeout: 15)
-        pause(0.8)
+        let _ = app.waitForMultiTextContent(timeout: 10)
+        pause(0.3)
 
         // Воспроизведение
         let playPause = app.buttons["multi-play-pause"]
-        waitAndTap(playPause, postPause: 1.5)
+        waitAndTap(playPause, postPause: 0.3)
 
-        // Следующий стих × 3
+        // Следующий стих × 2
         let nextUnit = app.buttons["multi-next-unit"]
-        if nextUnit.waitForExistence(timeout: 5) && nextUnit.isEnabled {
-            demoTap(nextUnit, prePause: 0.3, postPause: 1.5)
+        if quickWait(nextUnit, timeout: 3) && nextUnit.isEnabled {
+            demoTap(nextUnit, postPause: 0.2)
 
             if nextUnit.isEnabled {
-                demoTap(nextUnit, prePause: 0.2, postPause: 1.5)
-            }
-
-            if nextUnit.isEnabled {
-                demoTap(nextUnit, prePause: 0.2, postPause: 1.5)
+                demoTap(nextUnit, postPause: 0.2)
             }
         }
 
         // Финал
-        pause(1.0)
+        pause(0.2)
 
         if playPause.exists && playPause.isEnabled {
-            demoTap(playPause, postPause: 0.5)
+            demoTap(playPause)
         }
 
-        pause(0.5)
+        pause(0.1)
     }
 }
