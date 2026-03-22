@@ -33,7 +33,7 @@ final class DemoRecordingTests: XCTestCase {
     private func demoTap(_ element: XCUIElement, prePause: TimeInterval = 0.15, postPause: TimeInterval = 0.3) {
         pause(prePause)
         element.tap()          // preview — показывает кружок, поглощается overlay
-        pause(0.45)            // зритель видит индикатор
+        pause(0.15)            // зритель видит индикатор
         element.tap()          // action — проходит насквозь к кнопке
         pause(postPause)
     }
@@ -47,7 +47,7 @@ final class DemoRecordingTests: XCTestCase {
     private func demoTapMultiple(_ element: XCUIElement, times: Int, interval: TimeInterval = 0.2) {
         // Первый тап с preview
         element.tap()          // preview
-        pause(0.35)
+        pause(0.15)
         element.tap()          // action
         pause(interval)
         // Остальные — без preview (быстро)
@@ -69,7 +69,7 @@ final class DemoRecordingTests: XCTestCase {
                 let element = matches.element(boundBy: i)
                 if element.exists && element.isHittable {
                     element.tap()      // preview
-                    pause(0.45)
+                    pause(0.15)
                     element.tap()      // action
                     pause(postPause)
                     return true

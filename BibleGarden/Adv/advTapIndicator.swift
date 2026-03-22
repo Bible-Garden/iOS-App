@@ -100,18 +100,18 @@ class TapInterceptView: UIView {
         // Появление
         circle.transform = CGAffineTransform(scaleX: 0.3, y: 0.3)
         circle.alpha = 0
-        UIView.animate(withDuration: 0.12, delay: 0, options: [.curveEaseOut]) {
+        UIView.animate(withDuration: 0.05, delay: 0, options: [.curveEaseOut]) {
             circle.transform = .identity
             circle.alpha = 1
         }
 
         // Пульсация
-        UIView.animate(withDuration: 0.3, delay: 0.12, options: [.curveEaseInOut, .autoreverse]) {
+        UIView.animate(withDuration: 0.1, delay: 0.05, options: [.curveEaseInOut, .autoreverse]) {
             circle.transform = CGAffineTransform(scaleX: 1.15, y: 1.15)
         }
 
         // Затухание
-        UIView.animate(withDuration: 0.35, delay: 0.5, options: [.curveEaseIn]) {
+        UIView.animate(withDuration: 0.12, delay: 0.18, options: [.curveEaseIn]) {
             circle.alpha = 0
             circle.transform = CGAffineTransform(scaleX: 1.3, y: 1.3)
         } completion: { _ in
