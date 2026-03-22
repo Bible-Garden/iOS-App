@@ -33,27 +33,21 @@ Values are injected via `Info.plist` → `Config.swift` (`Config.baseURL`, `Conf
 
 ## App Store Demo Video Recording
 
-Automated UI test scenario for recording App Store preview videos. Uses `--demo-recording` flag which enables a tap indicator overlay — animated circles appear at touch points before each action.
+Automated UI test + screen recording + ffmpeg post-processing for App Store preview videos. Supports 3 languages (ru, en, uk). Uses `--demo-recording` flag for tap indicator overlay and `--app-language` to set the interface language.
 
 ```bash
-# 1. Boot the simulator
-xcrun simctl boot "iPhone 17 Pro"
+# All 3 languages (record + process)
+./scripts/record-demo.sh
 
-# 2. Start screen recording
-xcrun simctl io booted recordVideo ~/Desktop/demo.mp4
+# Single language
+./scripts/record-demo.sh --lang ru
 
-# 3. In another terminal, run the demo test
-cd ~/Desktop/Dev/BiblePause/BiblePause
-xcodebuild test \
-  -project BibleGarden.xcodeproj \
-  -scheme BibleGarden \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.3.1' \
-  -only-testing:BibleGardenUITests/DemoRecordingTests/testAppStoreDemo
-
-# 4. Stop recording (Ctrl+C in the first terminal)
+# Re-process existing raw recordings (no re-recording)
+./scripts/record-demo.sh --process-only
+./scripts/record-demo.sh --process-only --lang en
 ```
 
-Timings are in `BibleGardenUITests/DemoRecordingTests.swift` — adjust `pause()` values to control pacing. The test runs in ~30 seconds.
+Requires `ffmpeg` (`brew install ffmpeg`). Output: `demo_appstore_{lang}.mp4` (1290x2796, H.264). Trim/speed constants are at the top of `scripts/record-demo.sh`. Test timings are in `BibleGardenUITests/DemoRecordingTests.swift`.
 
 ## OpenAPI Generation
 

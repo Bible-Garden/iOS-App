@@ -9,13 +9,31 @@ import XCTest
 
 final class DemoRecordingTests: XCTestCase {
 
+    private struct LangConfig {
+        let langKeywords: [String]
+        let translationKeywords: [String]
+        let voiceKeywords: [String]
+    }
+
+    // Second step is always English / WEBUS / Winfred Henson
+    private let secondStepConfig = LangConfig(
+        langKeywords: ["English", "Eng"],
+        translationKeywords: ["WEBUS"],
+        voiceKeywords: ["Winfred", "Henson"]
+    )
+
     private var app: XCUIApplication!
+    private var demoLang: String!
 
     override func setUpWithError() throws {
         continueAfterFailure = true
 
+        // Read language from temp file (set by record-demo.sh script)
+        demoLang = (try? String(contentsOfFile: "/tmp/biblegarden_demo_lang", encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? "en"
+
         app = XCUIApplication()
-        app.launchArguments = ["--uitesting", "--demo-recording"]
+        app.launchArguments = ["--uitesting", "--demo-recording", "--app-language", demoLang]
         app.launch()
     }
 
@@ -71,18 +89,22 @@ final class DemoRecordingTests: XCTestCase {
     private func tapHittableText(containing keywords: [String], timeout: TimeInterval = 5, postPause: TimeInterval = 0.05) -> Bool {
         let conditions = keywords.map { "label CONTAINS[c] '\($0)'" }.joined(separator: " OR ")
         let predicate = NSPredicate(format: conditions)
-        let matches = app.staticTexts.matching(predicate)
+        // Search both staticTexts and buttons (voice rows are Button elements)
+        let textMatches = app.staticTexts.matching(predicate)
+        let buttonMatches = app.buttons.matching(predicate)
 
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            for i in 0..<matches.count {
-                let element = matches.element(boundBy: i)
-                if element.exists && element.isHittable {
-                    element.tap()      // preview
-                    pause(0.1)
-                    element.tap()      // action
-                    pause(postPause)
-                    return true
+            for matches in [textMatches, buttonMatches] {
+                for i in 0..<matches.count {
+                    let element = matches.element(boundBy: i)
+                    if element.exists && element.isHittable {
+                        element.tap()      // preview
+                        pause(0.1)
+                        element.tap()      // action
+                        pause(postPause)
+                        return true
+                    }
                 }
             }
             Thread.sleep(forTimeInterval: 0.05)
@@ -115,9 +137,12 @@ final class DemoRecordingTests: XCTestCase {
         let addPauseBtn = app.buttons["multi-add-pause-step"]
         waitAndTap(addPauseBtn)
 
-        let pausePlus = app.buttons["multi-pause-plus-1"]
-        if pausePlus.exists {
-            demoTap(pausePlus)
+        // Пауза: дефолт 2 сек → уменьшаем до 1
+        // Ищем minus кнопку по предикату (List в edit mode может менять идентификаторы)
+        let minusPredicate = NSPredicate(format: "identifier CONTAINS 'pause-minus'")
+        let pauseMinusBtn = app.buttons.matching(minusPredicate).firstMatch
+        if quickWait(pauseMinusBtn, timeout: 3) {
+            demoTap(pauseMinusBtn)
         }
 
         // Сцена 4: Добавляем второй перевод
@@ -128,34 +153,34 @@ final class DemoRecordingTests: XCTestCase {
 
         // Язык
         demoTap(langSection)
-        let foundEnglish = tapHittableText(containing: ["English"], timeout: 5)
-        if !foundEnglish {
-            _ = tapHittableText(containing: ["Eng"], timeout: 2)
+        let foundLang = tapHittableText(containing: secondStepConfig.langKeywords, timeout: 5)
+        if !foundLang {
+            _ = tapHittableText(containing: secondStepConfig.langKeywords.map { String($0.prefix(3)) }, timeout: 2)
         }
 
         // Перевод
         let foundTranslation = tapHittableText(
-            containing: ["BSB", "KJV", "ESV", "NIV", "NASB", "NLT", "WEB", "NKJV"],
+            containing: secondStepConfig.translationKeywords,
             timeout: 5
         )
         if !foundTranslation {
             let transSection = app.buttons["config-section-translation"]
             if quickWait(transSection, timeout: 2) {
                 demoTap(transSection)
-                _ = tapHittableText(containing: ["BSB", "KJV", "ESV", "NIV"], timeout: 3)
+                _ = tapHittableText(containing: secondStepConfig.translationKeywords, timeout: 3)
             }
         }
 
         // Голос
         let foundVoice = tapHittableText(
-            containing: ["Souer", "Bob", "David", "James", "John", "Michael", "Mark"],
+            containing: secondStepConfig.voiceKeywords,
             timeout: 5
         )
         if !foundVoice {
             let voiceSection = app.buttons["config-section-voice"]
             if quickWait(voiceSection, timeout: 2) {
                 demoTap(voiceSection)
-                _ = tapHittableText(containing: ["Souer", "Bob"], timeout: 3)
+                _ = tapHittableText(containing: secondStepConfig.voiceKeywords, timeout: 3)
             }
         }
 
@@ -185,12 +210,8 @@ final class DemoRecordingTests: XCTestCase {
         let saveAndRead = app.buttons["multilingual-save-and-read"]
         waitAndTap(saveAndRead)
 
-        // Save-alert — пропускаем
-        let skipPredicate = NSPredicate(format: "identifier == 'multi-save-alert' AND (label CONTAINS[c] 'without' OR label CONTAINS[c] 'без' OR label CONTAINS[c] 'Не сохран')")
-        let skipBtn = app.buttons.matching(skipPredicate).firstMatch
-        if quickWait(skipBtn, timeout: 3) {
-            demoTap(skipBtn)
-        }
+        // Save-alert — пропускаем (кнопка "без сохранения" / "without saving")
+        _ = tapHittableText(containing: ["without", "без сохран", "без збереж"], timeout: 3)
 
         // Страница чтения
         let readingPage = app.otherElements["page-multi-reading"]
@@ -199,27 +220,17 @@ final class DemoRecordingTests: XCTestCase {
         let _ = app.waitForMultiTextContent(timeout: 10)
         pause(0.3)
 
-        // Воспроизведение
-        let playPause = app.buttons["multi-play-pause"]
-        waitAndTap(playPause, postPause: 0.3)
-
-        // Следующий стих × 2
+        // Следующий блок
         let nextUnit = app.buttons["multi-next-unit"]
         if quickWait(nextUnit, timeout: 3) && nextUnit.isEnabled {
-            demoTap(nextUnit, postPause: 0.2)
-
-            if nextUnit.isEnabled {
-                demoTap(nextUnit, postPause: 0.2)
-            }
+            demoTap(nextUnit, postPause: 0.3)
         }
 
-        // Финал
-        pause(0.2)
+        // Воспроизведение
+        let playPause = app.buttons["multi-play-pause"]
+        waitAndTap(playPause)
 
-        if playPause.exists && playPause.isEnabled {
-            demoTap(playPause)
-        }
-
-        pause(0.1)
+        // Даём проиграться
+        pause(6.5)
     }
 }

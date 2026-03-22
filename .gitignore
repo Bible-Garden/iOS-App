@@ -88,6 +88,5 @@ Debug.xcconfig
 Release.xcconfig
 
 # Demo video recordings
-demo_raw.mp4
-demo_appstore.mp4
+demo_videos/
 

@@ -1,33 +1,58 @@
 #!/bin/bash
 #
-# Record & prepare App Store preview video.
+# Record & prepare App Store preview videos (supports multiple languages).
 #
 # Usage:
-#   ./scripts/record-demo.sh                    # record + process
-#   ./scripts/record-demo.sh --process-only     # only process existing raw recording
+#   ./scripts/record-demo.sh                    # record + process all 3 languages
+#   ./scripts/record-demo.sh --lang ru          # record + process single language
+#   ./scripts/record-demo.sh --process-only     # process all existing raw recordings
+#   ./scripts/record-demo.sh --process-only --lang en  # process single language
 #
 # Requirements: ffmpeg (brew install ffmpeg)
 #
-# Output:
-#   demo_raw.mp4       — raw simulator recording
-#   demo_appstore.mp4  — cropped/scaled for App Store (1290x2796, ≤30s)
+# Output (in demo_videos/ folder):
+#   demo_raw_{lang}.mp4       — raw simulator recording
+#   demo_appstore_{lang}.mp4  — cropped/scaled for App Store (1290x2796)
 
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-RAW="$PROJECT_DIR/demo_raw.mp4"
-OUTPUT="$PROJECT_DIR/demo_appstore.mp4"
+VIDEO_DIR="$PROJECT_DIR/demo_videos"
+mkdir -p "$VIDEO_DIR"
 
 SIMULATOR="iPhone 17 Pro"
 # App Store 6.7" display: 1290x2796
 TARGET_W=1290
 TARGET_H=2796
 # Seconds to trim from the beginning (simulator boot + app launch)
-TRIM_START=14.5
-# Speed ramp: speed up a segment (times after trimming, e.g. 10-15s of final video)
-SPEED_START=6    # start of sped-up segment (seconds in trimmed video)
+TRIM_START=13.5
+# Speed ramp: speed up a segment (times after trimming, e.g. 6-15s of final video)
+SPEED_START=6     # start of sped-up segment (seconds in trimmed video)
 SPEED_END=15      # end of sped-up segment
 SPEED_FACTOR=1.5  # playback speed multiplier
+
+ALL_LANGUAGES=("ru" "en" "uk")
+LANGUAGES=("${ALL_LANGUAGES[@]}")
+PROCESS_ONLY=false
+
+# ── Parse args ───────────────────────────────────────────────────
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --lang)
+            LANGUAGES=("$2")
+            shift 2
+            ;;
+        --process-only)
+            PROCESS_ONLY=true
+            shift
+            ;;
+        *)
+            echo "Unknown arg: $1"
+            exit 1
+            ;;
+    esac
+done
 
 # ── Helpers ──────────────────────────────────────────────────────
 
@@ -49,16 +74,21 @@ check_ffmpeg() {
 # ── Record ───────────────────────────────────────────────────────
 
 record() {
-    echo "🎬 Booting simulator: $SIMULATOR"
+    local LANG_CODE="$1"
+    local RAW="$VIDEO_DIR/demo_raw_${LANG_CODE}.mp4"
+
+    echo ""
+    echo "🎬 [$LANG_CODE] Booting simulator: $SIMULATOR"
     xcrun simctl boot "$SIMULATOR" 2>/dev/null || true
     sleep 2
 
-    echo "🔴 Starting screen recording → $RAW"
+    echo "🔴 [$LANG_CODE] Starting screen recording → $RAW"
     xcrun simctl io booted recordVideo --force "$RAW" &
     RECORD_PID=$!
     sleep 1
 
-    echo "🧪 Running demo test..."
+    echo "🧪 [$LANG_CODE] Running demo test..."
+    echo "$LANG_CODE" > /tmp/biblegarden_demo_lang
     xcodebuild test \
         -project "$PROJECT_DIR/BibleGarden.xcodeproj" \
         -scheme BibleGarden \
@@ -67,23 +97,27 @@ record() {
         2>&1 | grep -E '(Test Case|TEST SUCCEEDED|TEST FAILED|error:)'
 
     sleep 1
-    echo "⏹ Stopping recording..."
+    echo "⏹ [$LANG_CODE] Stopping recording..."
     kill -INT "$RECORD_PID" 2>/dev/null
     wait "$RECORD_PID" 2>/dev/null || true
     unset RECORD_PID
 
-    echo "✅ Raw recording: $RAW"
+    echo "✅ [$LANG_CODE] Raw recording: $RAW"
 }
 
 # ── Process ──────────────────────────────────────────────────────
 
 process() {
+    local LANG_CODE="$1"
+    local RAW="$VIDEO_DIR/demo_raw_${LANG_CODE}.mp4"
+    local OUTPUT="$VIDEO_DIR/demo_appstore_${LANG_CODE}.mp4"
+
     check_ffmpeg
 
     if [[ ! -f "$RAW" ]]; then
-        echo "❌ Raw recording not found: $RAW"
+        echo "❌ [$LANG_CODE] Raw recording not found: $RAW"
         echo "   Run without --process-only first."
-        exit 1
+        return 1
     fi
 
     # Get source dimensions
@@ -92,34 +126,28 @@ process() {
     DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$RAW")
     DURATION_INT=${DURATION%.*}
 
-    TRIMMED_DUR=$(echo "$DURATION - $TRIM_START" | bc)
+    echo ""
+    echo "📐 [$LANG_CODE] Source: ${SRC_W}x${SRC_H}, ${DURATION_INT}s"
+    echo "📐 [$LANG_CODE] Target: ${TARGET_W}x${TARGET_H}, skip first ${TRIM_START}s"
+    echo "⏩ [$LANG_CODE] Speed ×${SPEED_FACTOR} from ${SPEED_START}s to ${SPEED_END}s"
 
-    echo "📐 Source: ${SRC_W}x${SRC_H}, ${DURATION_INT}s"
-    echo "📐 Target: ${TARGET_W}x${TARGET_H}, skip first ${TRIM_START}s"
-    echo "⏩ Speed ×${SPEED_FACTOR} from ${SPEED_START}s to ${SPEED_END}s (in trimmed video)"
-
-    # Scale + crop filter (reused in all segments)
+    # Scale + crop filter
     SCALE="scale=${TARGET_W}:-2,crop=${TARGET_W}:${TARGET_H}:(iw-${TARGET_W})/2:(ih-${TARGET_H})/2,setsar=1"
 
     # PTS factor: 1/speed (e.g. 1.5x → PTS*0.6667)
     PTS_FACTOR=$(echo "scale=4; 1 / $SPEED_FACTOR" | bc)
 
-    # Absolute timestamps in raw file
-    RAW_A=$TRIM_START                                        # start of part 1
-    RAW_B=$(echo "$TRIM_START + $SPEED_START" | bc)          # start of sped-up part
-    RAW_C=$(echo "$TRIM_START + $SPEED_END" | bc)            # start of part 3
-    RAW_END=$DURATION                                        # end
-
-    # Complex filter: 3 segments from same input, speed up the middle one
+    # After -ss trim, timestamps start from 0
+    # Split into 3 segments: [0..SPEED_START] normal, [SPEED_START..SPEED_END] fast, [SPEED_END..end] normal
     FILTER_COMPLEX="
-        [0:v]trim=start=${RAW_A}:end=${RAW_B},setpts=PTS-STARTPTS,${SCALE}[part1];
-        [0:v]trim=start=${RAW_B}:end=${RAW_C},setpts=${PTS_FACTOR}*(PTS-STARTPTS),${SCALE}[part2];
-        [0:v]trim=start=${RAW_C},setpts=PTS-STARTPTS,${SCALE}[part3];
+        [0:v]trim=start=0:end=${SPEED_START},setpts=PTS-STARTPTS,${SCALE}[part1];
+        [0:v]trim=start=${SPEED_START}:end=${SPEED_END},setpts=${PTS_FACTOR}*(PTS-STARTPTS),${SCALE}[part2];
+        [0:v]trim=start=${SPEED_END},setpts=PTS-STARTPTS,${SCALE}[part3];
         [part1][part2][part3]concat=n=3:v=1:a=0[out]
     "
 
-    echo "🔄 Processing..."
-    ffmpeg -y -i "$RAW" \
+    echo "🔄 [$LANG_CODE] Processing..."
+    ffmpeg -y -ss "$TRIM_START" -i "$RAW" \
         -filter_complex "$FILTER_COMPLEX" \
         -map "[out]" \
         -c:v h264 -profile:v high -level 4.2 \
@@ -128,14 +156,17 @@ process() {
         -an \
         "$OUTPUT" 2>&1 | grep -E '(frame=|error|Error)' || true
 
-    # Verify output
+    # Verify output (use stream duration for accuracy, fallback to format)
     OUT_W=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$OUTPUT")
     OUT_H=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$OUTPUT")
-    OUT_DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$OUTPUT")
+    OUT_DUR=$(ffprobe -v error -select_streams v:0 -show_entries stream=duration -of csv=p=0 "$OUTPUT")
+    if [[ -z "$OUT_DUR" || "$OUT_DUR" == "N/A" ]]; then
+        OUT_DUR=$(ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames,r_frame_rate -of csv=p=0 "$OUTPUT" | awk -F',' '{split($2,a,"/"); if(a[2]>0) printf "%.1f", $1/(a[1]/a[2])}')
+    fi
     OUT_SIZE=$(du -h "$OUTPUT" | cut -f1)
 
     echo ""
-    echo "✅ App Store preview ready: $OUTPUT"
+    echo "✅ [$LANG_CODE] App Store preview ready: $OUTPUT"
     echo "   Resolution: ${OUT_W}x${OUT_H}"
     echo "   Duration:   ${OUT_DUR%.*}s"
     echo "   Size:       $OUT_SIZE"
@@ -143,9 +174,17 @@ process() {
 
 # ── Main ─────────────────────────────────────────────────────────
 
-if [[ "${1:-}" == "--process-only" ]]; then
-    process
-else
-    record
-    process
-fi
+for lang in "${LANGUAGES[@]}"; do
+    echo ""
+    echo "════════════════════════════════════════════════════"
+    echo "  Language: $lang"
+    echo "════════════════════════════════════════════════════"
+
+    if [[ "$PROCESS_ONLY" == false ]]; then
+        record "$lang"
+    fi
+    process "$lang"
+done
+
+echo ""
+echo "🎉 Done! Processed ${#LANGUAGES[@]} language(s): ${LANGUAGES[*]}"
